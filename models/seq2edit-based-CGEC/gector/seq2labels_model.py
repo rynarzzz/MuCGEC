@@ -7,22 +7,24 @@ import os
 from typing import *
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
-from allennlp.data import Vocabulary
-from allennlp.models.model import Model
-from allennlp.modules import TimeDistributed, TextFieldEmbedder, ConditionalRandomField
-from allennlp.nn import InitializerApplicator, RegularizerApplicator
-from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_logits, tiny_value_of_dtype
-from gector.seq2labels_metric import Seq2LabelsMetric
-from overrides import overrides
 from torch.nn.modules.linear import Linear
+
+from allennlp.models.model import Model
+from allennlp.nn import InitializerApplicator, RegularizerApplicator
+from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_logits
+from seq2labels_metric import Seq2LabelsMetric
+from overrides import overrides
 from allennlp.nn import util
 
+from ..embedder import TransformerEmbedder
+from ..utils.vocab import Vocabulary
 
-@Model.register("seq2labels")
+
 class Seq2Labels(Model):
     def __init__(self, vocab: Vocabulary,
-                 text_field_embedder: TextFieldEmbedder,
+                 text_field_embedder: TransformerEmbedder,
                  predictor_dropout=0.0,
                  labels_namespace: str = "labels",
                  detect_namespace: str = "d_tags",
@@ -74,37 +76,23 @@ class Seq2Labels(Model):
         self.model_dir = model_dir
         self.logger = logger
         self.beta = beta
-        self.predictor_dropout = TimeDistributed(torch.nn.Dropout(predictor_dropout))
-        # TimeDistributed模块是临时将(batch_size, time_steps, [rest])的time_steps维度暂时降维，变为(batch_size * time_steps, [rest])的矩阵，提供给某个模块（如维度为([rest], output_dim)的Linear层），
-        # 然后再将该模块的输出(batch_size * time_steps, output_dim)变为(batch_size, time_steps, output_dim)的形式
-        # TimeDistributed层在需要并行解码时非常常用。因为decoder端的MLP等需要同时应用在当前序列各time_step上，同步解码。
+        self.predictor_dropout = torch.nn.Dropout(predictor_dropout)
         self.dev_file = dev_file
-        self.tag_labels_hidden_layers = []
-        self.tag_detect_hidden_layers = []
         input_dim = text_field_embedder.get_output_dim()
+        projection_dim = input_dim
+        self.tag_labels_hidden_layers = nn.ModuleList([])
+        self.tag_detect_hidden_layers = nn.ModuleList([])
         if hidden_layers > 0:
-            self.tag_labels_hidden_layers.append(TimeDistributed(
-                Linear(input_dim,
-                       hidden_dim)).cuda(self.device))
-            self.tag_detect_hidden_layers.append(TimeDistributed(
-                Linear(input_dim,
-                       hidden_dim)).cuda(self.device))
+            self.tag_labels_hidden_layers.append(Linear(input_dim, hidden_dim).cuda(self.device))
+            self.tag_detect_hidden_layers.append(Linear(input_dim, hidden_dim).cuda(self.device))
             for _ in range(hidden_layers - 1):
-                self.tag_labels_hidden_layers.append(TimeDistributed(
-                    Linear(hidden_dim, hidden_dim)).cuda(self.device))
-                self.tag_detect_hidden_layers.append(TimeDistributed(
-                    Linear(hidden_dim, hidden_dim)).cuda(self.device))
-            self.tag_labels_projection_layer = TimeDistributed(
-                Linear(hidden_dim,
-                       self.num_labels_classes)).cuda(self.device)  # 编辑label预测线性投影层
-            self.tag_detect_projection_layer = TimeDistributed(
-                Linear(hidden_dim,
-                       self.num_detect_classes)).cuda(self.device)  # 编辑label预测线性投影层
-        else:
-            self.tag_labels_projection_layer = TimeDistributed(
-                Linear(input_dim, self.num_labels_classes)).to(self.device)  # 编辑label预测线性投影层
-            self.tag_detect_projection_layer = TimeDistributed(
-                Linear(input_dim, self.num_detect_classes)).to(self.device)  # 是否错误tag预测线性投影层
+                self.tag_labels_hidden_layers.append(Linear(hidden_dim, hidden_dim).cuda(self.device))
+                self.tag_detect_hidden_layers.append(Linear(hidden_dim, hidden_dim).cuda(self.device))
+            projection_dim = hidden_dim
+        # 编辑label预测线性投影层
+        self.tag_labels_projection_layer = Linear(projection_dim, self.num_labels_classes).to(self.device)
+        # 是否错误tag预测线性投影层
+        self.tag_detect_projection_layer = Linear(projection_dim, self.num_detect_classes).to(self.device)
 
         # self.metrics = {"accuracy": CategoricalAccuracy()}
         self.metric = Seq2LabelsMetric()
@@ -153,7 +141,7 @@ class Seq2Labels(Model):
                labels: torch.LongTensor = None,
                d_tags: torch.LongTensor = None,
                metadata: List[Dict[str, Any]] = None) -> Dict:
-        if self.tag_labels_hidden_layers:
+        if len(self.tag_labels_hidden_layers):
             encoded_text_labels = encoded_text.clone().to(self.device)
             for layer in self.tag_labels_hidden_layers:
                 encoded_text_labels = layer(encoded_text_labels)
@@ -227,7 +215,7 @@ class Seq2Labels(Model):
                     labels_accuracy_except_keep))
                 self.logger.info('The accuracy of predicting for edit labels except keep label is: ' + str(
                     labels_accuracy_except_keep))
-                tmp_model_dir = "/".join(self.model_dir.split('/')[:-1]) + "/Temp_Model.th" 
+                tmp_model_dir = "/".join(self.model_dir.split('/')[:-1]) + "/Temp_Model.th"
                 self.save(tmp_model_dir)
                 if self.save_metric == "+labels_accuracy":
                     if self.best_metric <= labels_accuracy:

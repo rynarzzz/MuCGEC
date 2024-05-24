@@ -1,4 +1,3 @@
-"""Wrapper of AllenNLP model. Fixes errors based on model predictions"""
 import logging
 import os
 import sys
@@ -15,7 +14,7 @@ from allennlp.data.token_indexers import PretrainedTransformerIndexer, SingleIdT
 from allennlp.modules.token_embedders import PretrainedTransformerEmbedder
 from allennlp.nn import util
 from pypinyin import lazy_pinyin
-from gector.seq2labels_model import Seq2Labels
+from seq2labels_model import Seq2Labels
 from utils.helpers import PAD, UNK, get_target_sent_by_edits, START_TOKEN
 
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
@@ -28,7 +27,7 @@ logger = logging.getLogger(__file__)
 # 它相当于对seq2labels模型的高级封装，用于使用训练好的seq2labels模型预测并输出纠错结果。
 # 训练阶段，我们只训练seq2labels模型；而预测阶段，我们才需要用到完整的gec_model模型。
 
-class GecBERTModel(object):
+class GecBERTModel:
     def __init__(self,
                  vocab_path=None,
                  vocab=None,
@@ -43,7 +42,6 @@ class GecBERTModel(object):
                  is_ensemble=True,
                  min_error_probability=0.0,
                  confidence=0,
-                 resolve_cycles=False,
                  cuda_device=0
                  ):
         """
@@ -61,7 +59,6 @@ class GecBERTModel(object):
         :param is_ensemble: 是否进行模型集成
         :param min_error_probability: 句子的最小纠错概率，小于它则不对当前句子纠错
         :param confidence: 给$KEEP标签添加一个置信度bias，防止模型过多地纠错，属于一个小trick
-        :param resolve_cycles: Todo 似乎没有用到
         :param cuda_device: 使用的GPU编号
         """
         self.model_weights = list(map(float, weigths)) if weigths else [1] * len(
@@ -77,7 +74,6 @@ class GecBERTModel(object):
         self.log = log
         self.iterations = iterations
         self.confidence = confidence
-        self.resolve_cycles = resolve_cycles
         # set training parameters and operations
         self.indexers = []  # 各模型对应的indexer
         self.models = []  # 各模型实例化的对象
