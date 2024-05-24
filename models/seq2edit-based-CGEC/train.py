@@ -5,23 +5,11 @@ import os
 import time
 from random import seed
 import torch
-from allennlp.data import allennlp_collate
-from allennlp.data.dataloader import PyTorchDataLoader
-from allennlp.data.samplers import BucketBatchSampler
-from allennlp.data.token_indexers import PretrainedTransformerIndexer
-from allennlp.modules import Embedding
-from allennlp.modules.token_embedders import PretrainedTransformerEmbedder
-from allennlp.data.vocabulary import DEFAULT_OOV_TOKEN, DEFAULT_PADDING_TOKEN
-from allennlp.data.vocabulary import Vocabulary
-from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
-from allennlp.data.dataset_readers.dataset_reader import AllennlpDataset
-from allennlp.training import GradientDescentTrainer
-from allennlp.training.learning_rate_schedulers import ReduceOnPlateauLearningRateScheduler
-from torch.utils.data import DataLoader
-from allennlp.training.optimizers import AdamOptimizer
+
+from embedder import get_transformer_embedder
 from gector.datareader import Seq2LabelsDatasetReader
 from gector.seq2labels_model import Seq2Labels
-from allennlp.training.tensorboard_writer import TensorboardWriter
+
 
 def fix_seed(s):
     """
@@ -29,6 +17,7 @@ def fix_seed(s):
     """
     torch.manual_seed(s)
     seed(s)
+
 
 def get_token_indexers(model_name):
     """
@@ -39,27 +28,13 @@ def get_token_indexers(model_name):
     bert_token_indexer = PretrainedTransformerIndexer(model_name=model_name, namespace="bert")
     return {'bert': bert_token_indexer}
 
-def get_token_embedders(model_name, tune_bert=False):
-    """
-    获取token嵌入器
-    :param model_name: 模型名称
-    :param tune_bert: 是否微调
-    :return: token文本域嵌入器
-    """
-    take_grads = True if tune_bert > 0 else False
-    bert_token_emb = PretrainedTransformerEmbedder(model_name=model_name, last_layer_only=True,
-                                                   train_parameters=take_grads)
-    token_embedders = {'bert': bert_token_emb}
-
-    text_filed_emd = BasicTextFieldEmbedder(token_embedders=token_embedders)
-    return text_filed_emd
 
 def build_data_loaders(
         data_set: AllennlpDataset,
         batch_size: int,
         num_workers: int,
         shuffle: bool,
-        batches_per_epoch = None
+        batches_per_epoch=None
 ):
     """
     创建数据载入器
@@ -71,7 +46,8 @@ def build_data_loaders(
     :return: 训练集、开发集、测试集数据载入器
     """
     return PyTorchDataLoader(data_set, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle,
-                      collate_fn=allennlp_collate, batches_per_epoch=batches_per_epoch)
+                             collate_fn=allennlp_collate, batches_per_epoch=batches_per_epoch)
+
 
 def get_data_reader(model_name, max_len, skip_correct=False, skip_complex=0,
                     test_mode=False, tag_strategy="keep_one",
@@ -96,7 +72,7 @@ def get_model(model_name, vocab, tune_bert=False, predictor_dropout=0,
               confidence=0,
               model_dir="",
               log=None):
-    token_embs = get_token_embedders(model_name, tune_bert=tune_bert)
+    token_embs = get_transformer_embedder(model_name, tune_bert=tune_bert)
     model = Seq2Labels(vocab=vocab,
                        text_field_embedder=token_embs,
                        predictor_dropout=predictor_dropout,
@@ -177,7 +153,7 @@ def main(args):
         (n, p)
         for n, p in model.named_parameters() if p.requires_grad
     ]
-    
+
     # 使用Adam算法进行SGD
     optimizer = AdamOptimizer(parameters, lr=args.lr, betas=(0.9, 0.999))
     scheduler = ReduceOnPlateauLearningRateScheduler(optimizer)
@@ -186,7 +162,8 @@ def main(args):
     tensorboardWriter = TensorboardWriter(args.model_dir)
     trainer = GradientDescentTrainer(
         model=model,
-        data_loader=build_data_loaders(train_data, batch_size=args.batch_size, num_workers=0, shuffle=False, batches_per_epoch=args.updates_per_epoch),
+        data_loader=build_data_loaders(train_data, batch_size=args.batch_size, num_workers=0, shuffle=False,
+                                       batches_per_epoch=args.updates_per_epoch),
         validation_data_loader=build_data_loaders(dev_data, batch_size=args.batch_size, num_workers=0, shuffle=False),
         num_epochs=args.n_epoch,
         optimizer=optimizer,
@@ -251,7 +228,7 @@ if __name__ == '__main__':
                         help='If set than correct sentences will be skipped '
                              'by data reader.',
                         default=1)  # 是否跳过正确句子
-    parser.add_argument('--skip_complex', 
+    parser.add_argument('--skip_complex',
                         type=int,
                         help='If set than complex corrections will be skipped '
                              'by data reader.',
@@ -281,14 +258,14 @@ if __name__ == '__main__':
                         type=float,
                         help='The probability to take TN from data.',
                         default=0)  # 保留正确句子的比例
-    parser.add_argument('--tp_prob', 
+    parser.add_argument('--tp_prob',
                         type=float,
                         help='The probability to take TP from data.',
                         default=1)  # 保留错误句子的比例
     parser.add_argument('--pretrain_folder',
                         help='The name of the pretrain folder.',
                         default=None)  # 之前已经训练好的checkpoint的文件夹
-    parser.add_argument('--pretrain',  
+    parser.add_argument('--pretrain',
                         help='The name of the pretrain weights in pretrain_folder param.',
                         default=None)  # 之前已经训练好的checkpoint名称
     parser.add_argument('--cuda_device',
