@@ -1,4 +1,3 @@
-#!/bin/bash
 base_path="/data/rengengchen/workspace/MuCGEC"
 code_path=$base_path"/models/seq2edit-based-CGEC"
 detect_vocab_path=$code_path"/data/output_vocabulary_chinese_char_hsk+lang8_5/d_tags.txt"
@@ -43,6 +42,7 @@ run_cmd="deepspeed --include localhost:1 --master_port 49828 train.py \
     --save_interval 50 \
     --pretrained_transformer_path $pretrained_transformer_path \
     --tune_bert 0 \
+    --sub_token_mode average \
     --tensorboard_dir $tensorboard_dir \
     2>&1 | tee ${save_dir}/train-${timestamp}.log"
 

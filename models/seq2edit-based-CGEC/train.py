@@ -37,8 +37,8 @@ if __name__ == "__main__":
     parser.add_argument("--detect_vocab_path", type=str, required=True)
     parser.add_argument("--correct_vocab_path", type=str, required=True)
     parser.add_argument("--do_eval", action="store_true")
-    parser.add_argument("--train_path", type=str, required=True)
-    parser.add_argument("--valid_path", type=str, required=False)
+    parser.add_argument("--train_path", type=str, default="/data/rengengchen/workspace/MuCGEC/data/MuCGEC_exp_data/train/train.label.shuf")
+    parser.add_argument("--valid_path", type=str, default="/data/rengengchen/workspace/MuCGEC/data/MuCGEC_exp_data/valid/valid.label")
     parser.add_argument("--use_cache", default=1, type=int,
                         help="use processed data cache")
     parser.add_argument("--num_workers", type=int, default=0, help="num workers for dataloader")

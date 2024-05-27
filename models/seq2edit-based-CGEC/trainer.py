@@ -19,7 +19,7 @@ from deepspeed.utils.logging import log_dist
 from deepspeed import comm
 from torch.utils.tensorboard import SummaryWriter
 
-from embedder import get_transformer_embedder
+from embedder import get_transformer_embedder, SeqEncoder
 from gector.seq2labels_model import Seq2Labels
 
 
@@ -74,8 +74,10 @@ class Trainer:
         self.mismatched_tokenizer = MisMatchedTokenizer(
             self.base_tokenizer, self.base_tokenizer_vocab, self.max_pieces_per_token)
 
-        token_embs = get_transformer_embedder(args.pretrained_transformer_path,
-                                              tune_bert=args.tune_bert)
+        token_embs = SeqEncoder(args.sub_token_mode,
+                                args.pretrained_transformer_path,
+                                device=self.device,
+                                tune_bert=args.tune_bert)
         model = Seq2Labels(
             text_field_embedder=token_embs,
             vocab=self.vocab,
@@ -197,7 +199,6 @@ class Trainer:
                 self.train_loader.sampler.set_epoch(epoch)
             self.model.train()
             if self.cold_step_count:
-
                 if epoch < self.cold_step_count:
                     for param_group in self.optimizer.param_groups:
                         param_group['lr'] = self.cold_lr

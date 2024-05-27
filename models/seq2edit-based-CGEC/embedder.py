@@ -10,41 +10,36 @@
 import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer
 
+from utils.mismatched_utils import MisMatchedEmbedder
 
-class TransformerEmbedder(nn.Module):
-    def __init__(self, model_name, tune_bert=False):
-        super(TransformerEmbedder, self).__init__()
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModel.from_pretrained(model_name)
 
-        # 根据参数选择是否微调 BERT 模型
-        for param in self.model.parameters():
-            param.requires_grad = bool(tune_bert)
+class SeqEncoder(nn.Module):
+    def __init__(self, sub_token_mode, encoder_path, device, tune_bert=False):
+        super().__init__()
+        self.matched_embedder = AutoModel.from_pretrained(encoder_path)
+        self.hidden_size = self.matched_embedder.config.hidden_size
+        self.mismatched_embedder = MisMatchedEmbedder(device, sub_token_mode)
+        self.activate_grad = True
+        self.tune_bert = tune_bert
 
-        # 存储隐藏层大小
-        self.hidden_size = self.model.config.hidden_size
+    def forward(self, input_dict):
+        requires_grad = self.tune_bert
+        if self.activate_grad != requires_grad:
+            for param in self.parameters():
+                param.requires_grad_(requires_grad)
+            self.activate_grad = requires_grad
 
-    def forward(self, text_list):
-        """
-        将文本列表转换为嵌入表示。
-        :param text_list: 文本列表
-        :return: 最后一层的隐藏状态
-        """
-        # 使用 tokenizer 处理输入文本
-        try:
-            inputs = self.tokenizer(text_list, return_tensors='pt', padding=True, truncation=True)
-        except ValueError:
-            print(text_list)
-            raise
-
-        # 转移到相同的设备上
-        inputs = {name: tensor.to(self.model.device) for name, tensor in inputs.items()}
-
-        # 获取模型输出
-        outputs = self.model(**inputs)
-
-        # 返回最后一层的隐藏状态
-        return outputs.last_hidden_state
+        output_dict = self.matched_embedder(
+            input_ids=input_dict["input_ids"],
+            token_type_ids=input_dict["token_type_ids"],
+            attention_mask=input_dict["attention_mask"],
+        )
+        last_hidden_states = output_dict[0]
+        word_embeddings = self.mismatched_embedder.get_mismatched_embeddings(
+            last_hidden_states,
+            offsets=input_dict["offsets"],
+            word_mask=input_dict["word_mask"])
+        return word_embeddings
 
     def get_output_dim(self):
         """
@@ -56,4 +51,4 @@ class TransformerEmbedder(nn.Module):
 
 # 使用示例
 def get_transformer_embedder(model_name, tune_bert=False):
-    return TransformerEmbedder(model_name, tune_bert)
+    return SeqEncoder(model_name, tune_bert)

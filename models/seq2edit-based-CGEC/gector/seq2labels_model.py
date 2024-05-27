@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.modules.linear import Linear
 
-from embedder import TransformerEmbedder
+from embedder import SeqEncoder
 from gector.dataset import Seq2EditVocab
 from gector.seq2labels_metric import Seq2LabelsMetric
 from utils.span import get_text_field_mask, sequence_cross_entropy_with_logits
@@ -17,7 +17,7 @@ from utils.helpers import INCORRECT_LABEL, UNK_LABEL
 
 
 class Seq2Labels(nn.Module):
-    def __init__(self, vocab: Seq2EditVocab, text_field_embedder: TransformerEmbedder, dropout=0.0,
+    def __init__(self, vocab: Seq2EditVocab, text_field_embedder: SeqEncoder, dropout=0.0,
                  label_smoothing: float = 0.0, additional_confidence: float = 0.0, model_dir: str = "",
                  hidden_layers: int = 0, hidden_dim: int = 512, cuda_device: int = 0, dev_file: str = None, logger=None,
                  save_metric: str = "dev_m2", beta: float = None, *args, **kwargs) -> None:
@@ -85,7 +85,7 @@ class Seq2Labels(nn.Module):
         encoded_text = self.text_field_embedder(tokens)
         batch_size, sequence_length, _ = encoded_text.size()
         # [batch_size,seq_len]  # 返回mask标记（防止因句子长度不一致而padding的影响）
-        mask = get_text_field_mask(tokens)
+        mask = get_text_field_mask(tokens['input_ids'])
 
         # 训练模式（训练集）
         if self.training:
