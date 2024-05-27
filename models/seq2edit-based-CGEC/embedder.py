@@ -23,8 +23,8 @@ class SeqEncoder(nn.Module):
         self.tune_bert = tune_bert
 
     def forward(self, input_dict):
-        requires_grad = self.tune_bert
-        if self.activate_grad != requires_grad:
+        requires_grad = bool(self.tune_bert)
+        if self.activate_grad ^ requires_grad:
             for param in self.parameters():
                 param.requires_grad_(requires_grad)
             self.activate_grad = requires_grad
