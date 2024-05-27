@@ -1,5 +1,3 @@
-import sys
-
 def remove_special_tags():
     file = "./MuCGEC_CGED_Dev.para"
     src_file = "./MuCGEC_CGED_Dev.src"
@@ -16,6 +14,7 @@ def remove_special_tags():
                             tgt = src
                         o1.write(src + "\n")
                         o2.write(tgt + "\n")
+
 
 def get_erroneous_pair():
     src_file = "./train_data/lang8+hsk/train.src"

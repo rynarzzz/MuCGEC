@@ -1,7 +1,4 @@
 # -*- coding: utf-8
-import os
-from transformers import BertModel
-import torch
 import tokenization
 import argparse
 from gector.gec_model import GecBERTModel
@@ -9,6 +6,7 @@ import re
 from opencc import OpenCC
 
 cc = OpenCC("t2s")
+
 
 def split_sentence(document: str, flag: str = "all", limit: int = 510):
     """
@@ -110,7 +108,8 @@ def predict_for_file(input_file, output_file, model, batch_size, log=True, seg=F
 
 def main(args):
     # get all paths
-    model = GecBERTModel(vocab_path=args.vocab_path,
+    vocab = Seq2EditVocab(args.detect_vocab_path, args.correct_vocab_path, unk2keep=bool(args.unk2keep))
+    model = GecBERTModel(vocab=vocab,
                          model_paths=args.model_path.split(','),
                          weights_names=args.weights_name.split(','),
                          max_len=args.max_len, min_len=args.min_len,
@@ -124,7 +123,7 @@ def main(args):
                          cuda_device=args.cuda_device
                          )
     cnt_corrections = predict_for_file(args.input_file, args.output_file, model,
-                                                   batch_size=args.batch_size, log=args.log, seg=args.seg)
+                                       batch_size=args.batch_size, log=args.log, seg=args.seg)
     print(f"Produced overall corrections: {cnt_corrections}")
 
 
@@ -176,19 +175,19 @@ if __name__ == '__main__':
     parser.add_argument('--min_error_probability',
                         type=float,
                         default=0.0)  # 句子级别最小修改阈值
-    parser.add_argument('--is_ensemble', 
+    parser.add_argument('--is_ensemble',
                         type=int,
                         help='Whether to do ensembling.',
                         default=0)  # 是否进行模型融合
     parser.add_argument('--weights',
                         help='Used to calculate weighted average', nargs='+',
                         default=None)  # 不同模型的权重（加权集成）
-    parser.add_argument('--cuda_device',  
+    parser.add_argument('--cuda_device',
                         help='The number of GPU',
                         default=0)  # 使用GPU编号
-    parser.add_argument('--log',  
+    parser.add_argument('--log',
                         action='store_true')  # 是否输出完整信息
-    parser.add_argument('--seg',  
+    parser.add_argument('--seg',
                         action='store_true')  # 是否切分长句预测后再合并
     args = parser.parse_args()
     main(args)

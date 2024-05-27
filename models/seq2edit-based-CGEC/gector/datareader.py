@@ -10,12 +10,11 @@ from allennlp.data.instance import Instance
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
 from allennlp.data.tokenizers import Token
 from overrides import overrides
-from utils.helpers import SEQ_DELIMETERS, START_TOKEN
+from ..utils.helpers import SEQ_DELIMETERS, START_TOKEN
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-@DatasetReader.register("seq2labels_datareader")
 class Seq2LabelsDatasetReader(DatasetReader):
     """
     Reads instances from a pretokenised file where each line is in the following format:
@@ -29,8 +28,8 @@ class Seq2LabelsDatasetReader(DatasetReader):
     ----------
     delimiters: ``dict``
         The dcitionary with all delimeters.
-    token_indexers : ``Dict[str, TokenIndexer]``, optional (default=``{"tokens": SingleIdTokenIndexer()}``)
-        We use this to define the input representation for the text.  See :class:`TokenIndexer`.
+    token_indexers : ``Dict[str, TokecnIndexer]``, optional (default=``{"tokens": SingleIdTokenIndexer()}``)
+        We use this to define the input representation for the text.  See :lass:`TokenIndexer`.
         Note that the `output` tags will always correspond to single token IDs based on how they
         are pre-tokenised in the data file.
     max_len: if set than will truncate long sentences

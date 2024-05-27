@@ -56,7 +56,7 @@ CUDA_VISIBLE_DEVICES=$CUDA_DEVICE python train.py --tune_bert 0\
                 --model_name $COLD_MODEL_NAME\
                 --vocab_path $VOCAB_PATH\
                 --batch_size $COLD_BATCH_SIZE\
-                --n_epoch $COLD_EPOCH\
+                --num_epochs $COLD_EPOCH\
                 --lr $COLD_LR\
                 --weights_name $PRETRAIN_WEIGHTS_DIR\
                 --seed $SEED
@@ -76,7 +76,7 @@ CUDA_VISIBLE_DEVICES=$CUDA_DEVICE python train.py --tune_bert 1\
                 --model_name $MODEL_NAME\
                 --vocab_path $VOCAB_PATH\
                 --batch_size $BATCH_SIZE\
-                --n_epoch $EPOCH\
+                --num_epochs $EPOCH\
                 --lr $LR\
                 --accumulation_size $ACCUMULATION_SIZE\
                 --patience $PATIENCE\

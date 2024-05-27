@@ -7,7 +7,6 @@
 @Author  ：rengengchen
 @Time    ：2024/5/24 16:40 
 """
-import torch
 import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer
 
@@ -20,7 +19,10 @@ class TransformerEmbedder(nn.Module):
 
         # 根据参数选择是否微调 BERT 模型
         for param in self.model.parameters():
-            param.requires_grad = tune_bert
+            param.requires_grad = bool(tune_bert)
+
+        # 存储隐藏层大小
+        self.hidden_size = self.model.config.hidden_size
 
     def forward(self, text_list):
         """
@@ -29,7 +31,11 @@ class TransformerEmbedder(nn.Module):
         :return: 最后一层的隐藏状态
         """
         # 使用 tokenizer 处理输入文本
-        inputs = self.tokenizer(text_list, return_tensors='pt', padding=True, truncation=True)
+        try:
+            inputs = self.tokenizer(text_list, return_tensors='pt', padding=True, truncation=True)
+        except ValueError:
+            print(text_list)
+            raise
 
         # 转移到相同的设备上
         inputs = {name: tensor.to(self.model.device) for name, tensor in inputs.items()}
@@ -39,6 +45,13 @@ class TransformerEmbedder(nn.Module):
 
         # 返回最后一层的隐藏状态
         return outputs.last_hidden_state
+
+    def get_output_dim(self):
+        """
+        获取输出层的维度。
+        :return: Transformer模型的隐藏层大小
+        """
+        return self.hidden_size
 
 
 # 使用示例

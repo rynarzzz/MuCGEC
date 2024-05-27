@@ -1,25 +1,26 @@
 import os
-from collections import defaultdict, Counter
 from pathlib import Path
-import random
 import string
-from tqdm import tqdm
-import json
 from string import punctuation
 
 chinese_punct = "……·——！―〉<>？｡。＂＃＄％＆＇（）＊＋，－／：《》；＜＝＞＠［’．＼］＾＿’｀｛｜｝～｟｠｢｣､、〃》「」『』【】〔〕〖〗〘〙〚〛〜〝〞〟〰〾〿–—‘'‛“”„‟…‧﹏"
 english_punct = punctuation
 letter = "123456789abcdefghijklmnopqrstuvwxyz"
-FILTER = ["\x7f", " ", "\uf0e0", "\uf0a7", "\u200e", "\x8b", "\uf0b7", "\ue415", "\u2060", "\ue528", "\ue529", "ᩘ", "\ue074", "\x8b", "\u200c", "\ue529", "\ufeff", "\u200b", "\ue817", "\xad", '\u200f', '️', '่', '︎']
+FILTER = ["\x7f", " ", "\uf0e0", "\uf0a7", "\u200e", "\x8b", "\uf0b7", "\ue415", "\u2060", "\ue528", "\ue529", "ᩘ",
+          "\ue074", "\x8b", "\u200c", "\ue529", "\ufeff", "\u200b", "\ue817", "\xad", '\u200f', '️', '่', '︎']
 VOCAB_DIR = Path(__file__).resolve().parent.parent / "data"
-PAD = "@@PADDING@@"
-UNK = "@@UNKNOWN@@"
+PAD_LABEL = "@@PADDING@@"
+UNK_LABEL = "@@UNKNOWN@@"
+INCORRECT_LABEL = "INCORRECT"
+CORRECT_LABEL = "CORRECT"
 START_TOKEN = "$START"
+KEEP_LABEL = "$KEEP"
 SEQ_DELIMETERS = {"tokens": " ",
                   "labels": "SEPL|||SEPR",
                   "operations": "SEPL__SEPR",
                   "pos_tags": "SEPL---SEPR"}  # 分隔符，其中，如果一个source token被多次编辑，那么这些编辑label之间用"SEPL__SEPR"相分割
 PUNCT = chinese_punct + english_punct + letter + letter.upper()
+
 
 def split_char(line):
     """
@@ -43,6 +44,7 @@ def split_char(line):
     if buffer:
         output.append(buffer)
     return output
+
 
 def get_verb_form_dicts():
     """
@@ -258,6 +260,7 @@ def read_lines(fn, skip_strip=False):
     with open(fn, 'r', encoding='utf-8') as f:
         lines = f.readlines()
     return [s.strip() for s in lines if s.strip() or skip_strip]
+
 
 def write_lines(fn, lines, mode='w'):
     """

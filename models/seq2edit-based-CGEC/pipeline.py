@@ -55,9 +55,9 @@ def train_model(stage, model_name, tune_bert, batch_size, n_epoch, lr, accumulat
         "--model_name", model_name,
         "--vocab_path", vocab_path,
         "--batch_size", str(batch_size),
-        "--n_epoch", str(n_epoch),
+        "--num_epochs", str(n_epoch),
         "--lr", str(lr),
-        "--weights_name", pretrain_weights_dir,
+        "--pretrain_weights_dir", pretrain_weights_dir,
         "--seed", "1"
     ]
     if stage == 2:
@@ -81,7 +81,7 @@ def inference():
 
     subprocess.run([
         "python", "predict.py", "--model_path", os.path.join(model_dir, "Best_Model_Stage_2.th"),
-        "--weights_name", pretrain_weights_dir,
+        "--pretrain_weights_dir", pretrain_weights_dir,
         "--vocab_path", vocab_path,
         "--input_file", input_file + ".char",
         "--output_file", output_file, "--log"

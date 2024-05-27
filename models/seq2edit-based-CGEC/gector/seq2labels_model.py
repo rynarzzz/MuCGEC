@@ -2,8 +2,6 @@
 GECToR真正意义上的模型，对一个源句子序列使用Transformer做encode，然后在每个token处使用MLP预测最可能的编辑label
 """
 # -*- coding: utf-8
-
-import os
 from typing import *
 
 import torch
@@ -11,72 +9,50 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.modules.linear import Linear
 
-from allennlp.models.model import Model
-from allennlp.nn import InitializerApplicator, RegularizerApplicator
-from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_logits
-from seq2labels_metric import Seq2LabelsMetric
-from overrides import overrides
-from allennlp.nn import util
-
-from ..embedder import TransformerEmbedder
-from ..utils.vocab import Vocabulary
+from embedder import TransformerEmbedder
+from gector.dataset import Seq2EditVocab
+from gector.seq2labels_metric import Seq2LabelsMetric
+from utils.span import get_text_field_mask, sequence_cross_entropy_with_logits
+from utils.helpers import INCORRECT_LABEL, UNK_LABEL
 
 
-class Seq2Labels(Model):
-    def __init__(self, vocab: Vocabulary,
-                 text_field_embedder: TransformerEmbedder,
-                 predictor_dropout=0.0,
-                 labels_namespace: str = "labels",
-                 detect_namespace: str = "d_tags",
-                 label_smoothing: float = 0.0,
-                 confidence: float = 0.0,
-                 model_dir: str = "",
-                 initializer: InitializerApplicator = InitializerApplicator(),
-                 regularizer: Optional[RegularizerApplicator] = None,
-                 hidden_layers: int = 0,
-                 hidden_dim: int = 512,
-                 cuda_device: int = 0,
-                 dev_file: str = None,
-                 logger=None,
-                 vocab_path: str = None,
-                 weight_name: str = None,
-                 save_metric: str = "dev_m2",
-                 beta: float = None,
-                 ) -> None:
+class Seq2Labels(nn.Module):
+    def __init__(self, vocab: Seq2EditVocab, text_field_embedder: TransformerEmbedder, dropout=0.0,
+                 label_smoothing: float = 0.0, additional_confidence: float = 0.0, model_dir: str = "",
+                 hidden_layers: int = 0, hidden_dim: int = 512, cuda_device: int = 0, dev_file: str = None, logger=None,
+                 save_metric: str = "dev_m2", beta: float = None, *args, **kwargs) -> None:
         """
         seq2labels模型的构造函数
         :param vocab: 词典对象
         :param text_field_embedder: 嵌入器，这里采用预训练的类bert模型作为嵌入器对token进行embedding（即论文模型结构中的Transformer-Encoder）
-        :param predictor_dropout: 预测器dropout概率（防止过拟合）
+        :param dropout: 预测器dropout概率（防止过拟合）
         :param labels_namespace: labels的命名空间（GECToR解码端的labels输出指的是编辑label，如$KEEP等）
         :param detect_namespace: detect的命令空间（GECToR解码端的d_tags输出指的是探测当前token是否出错的一个二分类标签）
         :param label_smoothing: 一个正则化的trick，减少分类错误带来的惩罚
-        :param confidence:  $KEEP标签的偏差项
+        :param additional_confidence:  $KEEP标签的偏差项
         :param model_dir:  模型保存路径
-        :param initializer: 初始化器
-        :param regularizer: 正则化器
         """
-        super(Seq2Labels, self).__init__(vocab, regularizer)
+        super().__init__(*args, **kwargs)
         self.save_metric = save_metric
-        self.weight_name = weight_name
         self.cuda_device = cuda_device
         self.device = torch.device("cuda:" + str(cuda_device) if int(cuda_device) >= 0 else "cpu")
-        self.label_namespaces = [labels_namespace,
-                                 detect_namespace]  # 需要解码预测的标签的命名空间
         self.text_field_embedder = text_field_embedder
-        self.num_labels_classes = self.vocab.get_vocab_size(labels_namespace)
-        self.num_detect_classes = self.vocab.get_vocab_size(detect_namespace)
+
+        self.vocab = vocab
+
+        self.num_detect_classes = len(vocab.detect_vocab["id2tag"])
+        self.num_labels_classes = len(vocab.correct_vocab["id2tag"])
+
         self.label_smoothing = label_smoothing
-        self.confidence = confidence
-        self.incorr_index = self.vocab.get_token_index("INCORRECT",
-                                                       namespace=detect_namespace)  # 获取INCORRECT标签的索引
-        self.vocab_path = vocab_path
+        self.additional_confidence = additional_confidence
+        self.incorr_index = self.vocab.detect_vocab["tag2id"][INCORRECT_LABEL]
+
         self.best_metric = 0.0
         self.epoch = 0
         self.model_dir = model_dir
         self.logger = logger
         self.beta = beta
-        self.predictor_dropout = torch.nn.Dropout(predictor_dropout)
+        self.predictor_dropout = torch.nn.Dropout(dropout)
         self.dev_file = dev_file
         input_dim = text_field_embedder.get_output_dim()
         projection_dim = input_dim
@@ -97,20 +73,19 @@ class Seq2Labels(Model):
         # self.metrics = {"accuracy": CategoricalAccuracy()}
         self.metric = Seq2LabelsMetric()
         # 模型的预测评价指标采用分类准确率
-        self.UNKID = self.vocab.get_vocab_size("labels") - 2
+        self.unk_id = self.vocab.correct_vocab["tag2id"][UNK_LABEL]
 
-        initializer(self)
-
-    @overrides
     def forward(self,
                 tokens: Dict[str, torch.LongTensor],
                 labels: torch.LongTensor = None,
                 d_tags: torch.LongTensor = None,
                 metadata: List[Dict[str, Any]] = None) -> Dict[str, torch.Tensor]:
 
-        encoded_text = self.text_field_embedder(tokens)  # 返回bert模型的输出。维度：[batch_size,seq_len,encoder_output_dim]
+        # 返回bert模型的输出。维度：[batch_size,seq_len,encoder_output_dim]
+        encoded_text = self.text_field_embedder(tokens)
         batch_size, sequence_length, _ = encoded_text.size()
-        mask = get_text_field_mask(tokens)  # [batch_size,seq_len]  # 返回mask标记（防止因句子长度不一致而padding的影响）
+        # [batch_size,seq_len]  # 返回mask标记（防止因句子长度不一致而padding的影响）
+        mask = get_text_field_mask(tokens)
 
         # 训练模式（训练集）
         if self.training:
@@ -154,11 +129,10 @@ class Seq2Labels(Model):
                 self.predictor_dropout(
                     encoded_text))  # 用一个简单的全连接层预测当前token处的label得分，[batch_size,seq_len,num_labels_classes]
         else:
-            logits_labels = self.tag_labels_projection_layer(
-                self.predictor_dropout(
-                    encoded_text))  # 用一个简单的全连接层预测当前token处的label得分，[batch_size,seq_len,num_labels_classes]
-            logits_d = self.tag_detect_projection_layer(
-                encoded_text)  # 用一个简单的全连接层预测当前token处的label得分，[batch_size,seq_len,num_detect_classes]
+            # 用一个简单的全连接层预测当前token处的label得分，[batch_size,seq_len,num_labels_classes]
+            logits_labels = self.tag_labels_projection_layer(self.predictor_dropout(encoded_text))
+            # 用一个简单的全连接层预测当前token处的label得分，[batch_size,seq_len,num_detect_classes]
+            logits_d = self.tag_detect_projection_layer(encoded_text)
 
         class_probabilities_labels = F.softmax(logits_labels, dim=-1).view(
             [batch_size, sequence_length, self.num_labels_classes])  # 利用Softmax函数，将得分转为概率
@@ -171,11 +145,11 @@ class Seq2Labels(Model):
         incorr_prob = torch.max(error_probs, dim=-1)[
             0]  # [batch_size]:取每个句子所有token的错误概率最大者，作为此句子的错误概率（用于min_error_probability的trick）
 
-        if self.confidence > 0:  # 给$KEEP标签添加一个置信度bias，优先预测$KEEP，防止模型过多地纠错，属于一个小trick
-            probability_change = [self.confidence] + [0] * (self.num_labels_classes - 1)
+        if self.additional_confidence > 0:  # 给$KEEP标签添加一个置信度bias，优先预测$KEEP，防止模型过多地纠错，属于一个小trick
+            probability_change = [self.additional_confidence] + [0] * (self.num_labels_classes - 1)
             offset = torch.FloatTensor(probability_change).repeat(
                 (batch_size, sequence_length, 1)).to(self.device)
-            class_probabilities_labels += util.move_to_device(offset, self.device)
+            class_probabilities_labels += offset.to(self.device)
 
         # 输出前向传播计算的结果
         output_dict = {"logits_labels": logits_labels,
@@ -196,7 +170,6 @@ class Seq2Labels(Model):
             output_dict["words"] = [x["words"] for x in metadata]
         return output_dict
 
-    @overrides
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
         """
         获取模型的评级指标

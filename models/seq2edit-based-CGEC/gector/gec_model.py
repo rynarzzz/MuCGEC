@@ -1,21 +1,17 @@
 import logging
-import os
-import sys
 from time import time
 import torch
 from allennlp.data.batch import Batch
 from allennlp.data.fields import TextField
 from allennlp.data.instance import Instance
 from allennlp.data.tokenizers.token_class import Token
-from allennlp.data.vocabulary import Vocabulary
-from allennlp.modules import Embedding
 from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
 from allennlp.data.token_indexers import PretrainedTransformerIndexer, SingleIdTokenIndexer
 from allennlp.modules.token_embedders import PretrainedTransformerEmbedder
 from allennlp.nn import util
-from pypinyin import lazy_pinyin
+
 from seq2labels_model import Seq2Labels
-from utils.helpers import PAD, UNK, get_target_sent_by_edits, START_TOKEN
+from utils.helpers import get_target_sent_by_edits, START_TOKEN, UNK_LABEL, PAD_LABEL
 
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 logger = logging.getLogger(__file__)
@@ -29,7 +25,6 @@ logger = logging.getLogger(__file__)
 
 class GecBERTModel:
     def __init__(self,
-                 vocab_path=None,
                  vocab=None,
                  model_paths=None,
                  weights_names=None,
@@ -46,7 +41,6 @@ class GecBERTModel:
                  ):
         """
         GECToR模型类的构造函数
-        :param vocab_path: 词典路径
         :param model_paths: 训练好的模型路径（可以是多个模型，用于模型集成）
         :param weigths: 模型集成时，每个模型输出的权重
         :param max_len: 纠错最大长度，句子中超过这个长度的部分将不会被纠错
@@ -70,7 +64,7 @@ class GecBERTModel:
         self.min_len = min_len
         self.min_probability = min_probability
         self.min_error_probability = min_error_probability
-        self.vocab = Vocabulary.from_files(vocab_path) if vocab_path else vocab  # 从文件里读取词典
+        self.vocab = vocab  # 从文件里读取词典
         self.log = log
         self.iterations = iterations
         self.confidence = confidence
@@ -148,7 +142,7 @@ class GecBERTModel:
         end_pos = 0
         """Get lost of suggested actions for token."""
         # cases when we don't need to do anything
-        if prob < self.min_probability or sugg_token in [UNK, PAD, '$KEEP']:
+        if prob < self.min_probability or sugg_token in [UNK_LABEL, PAD_LABEL, '$KEEP']:
             return None
 
         if sugg_token.startswith('$REPLACE_') or sugg_token.startswith('$TRANSFORM_') or sugg_token == '$DELETE':
@@ -348,8 +342,8 @@ class GecBERTModel:
 
             if not sequences:
                 break
-            probabilities, idxs, error_probs, d_tags_idxs = self.predict(
-                sequences)  # 预测，得到每个句子的每个词对应的编辑label的最大概率、最大概率label对应的索引、每个句子错误的概率
+            # 预测，得到每个句子的每个词对应的编辑label的最大概率、最大概率label对应的索引、每个句子错误的概率
+            probabilities, idxs, error_probs, d_tags_idxs = self.predict(sequences)
 
             pred_batch = self.postprocess_batch(orig_batch, probabilities,
                                                 idxs, error_probs, d_tags_idxs, self.max_len)  # 预测后进行处理，得到完成纠错的句子

@@ -6,7 +6,7 @@ import Levenshtein
 import numpy as np
 from tqdm import tqdm
 from helpers import write_lines, read_parallel_lines, encode_verb_form, \
-    apply_reverse_transformation, SEQ_DELIMETERS, START_TOKEN
+    apply_reverse_transformation, SEQ_DELIMETERS, START_TOKEN, read_lines
 from multiprocessing import Pool
 
 
@@ -29,12 +29,12 @@ def perfect_align(t, T, insertions_allowed=0,
                 if i < len(t):
                     # Given matched sequence of t[:i] and T[:j], match token
                     # t[i] with following tokens T[j:k].
-                    for k in range(j, len(T) + 1):  
-                        transform = apply_transformation(t[i], '   '.join(T[j:k])) 
-                        if transform: 
+                    for k in range(j, len(T) + 1):
+                        transform = apply_transformation(t[i], '   '.join(T[j:k]))
+                        if transform:
                             cost = 0
                         else:
-                            cost = cost_function(t[i], '   '.join(T[j:k])) 
+                            cost = cost_function(t[i], '   '.join(T[j:k]))
                         current = dp[i, j, q] + cost
                         if dp[i + 1, k, 0] > current:
                             dp[i + 1, k, 0] = current
@@ -65,7 +65,7 @@ def perfect_align(t, T, insertions_allowed=0,
         if is_insert:
             alignment.append(['INSERT', T[j:k], (i, i)])
         else:
-            alignment.append([f'REPLACE_{t[i]}', T[j:k], (i, i + 1)])  
+            alignment.append([f'REPLACE_{t[i]}', T[j:k], (i, i + 1)])
 
     assert j == 0
 
@@ -339,13 +339,14 @@ def add_labels_to_the_tokens(source_tokens, labels, delimeters=SEQ_DELIMETERS):
     return delimeters['tokens'].join(tokens_with_all_tags)
 
 
-def convert_data_from_raw_files(source_file, target_file, output_file, vocab_path, min_count, save_vocab = False, worker_num = 8):
+def convert_data_from_raw_files(input_file, output_file, vocab_path, min_count, save_vocab=False, worker_num=8):
     tagged = []
     dic = defaultdict(int)  # 统计一下当前数据集里的编辑label及其出现次数，过滤掉出现次数过少的
-    source_data, target_data = read_parallel_lines(source_file, target_file)
-    print(f"The size of raw dataset is {len(source_data)}")
+    # source_data, target_data = read_parallel_lines(source_file, target_file)
+    lines = [tuple(s.split('\t')) for s in read_lines(input_file, skip_strip=True)]
+    print(f"The size of raw dataset is {len(lines)}")
     with Pool(worker_num) as pool:
-        for aligned_sent, align_labels in pool.imap(align_sequences, tqdm(zip(source_data, target_data)), chunksize=8):
+        for aligned_sent, align_labels in pool.imap(align_sequences, tqdm(lines), chunksize=8):
             if aligned_sent and align_labels:
                 for label_list in align_labels:
                     for label in label_list:
@@ -359,6 +360,7 @@ def convert_data_from_raw_files(source_file, target_file, output_file, vocab_pat
         write_lines(vocab_path + '/labels.txt', labels, 'w')
     # 写入到文件中
     if tagged:
+        print(output_file)
         write_lines(output_file, tagged, mode='w')
 
 
@@ -463,16 +465,14 @@ def convert_tagged_line(line, delimeters=SEQ_DELIMETERS):
 
 
 def main(args):
-    convert_data_from_raw_files(args.source, args.target, args.output_file, args.vocab_path,  args.min_count, args.save_vocab, args.worker_num)
+    convert_data_from_raw_files(args.input_file, args.output_file, args.vocab_path, args.min_count, args.save_vocab,
+                                args.worker_num)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--source',
-                        help='Path to the source file',
-                        required=True)  # GEC数据源端文件（病句，每行一句），分字
-    parser.add_argument('-t', '--target',
-                        help='Path to the target file',
+    parser.add_argument('-i', '--input_file',
+                        help='Path to the input file',
                         required=True)  # GEC数据目标端文件（正确句子，每行一句，和source对应），分字
     parser.add_argument('-o', '--output_file',
                         help='Path to the output file',
@@ -492,4 +492,3 @@ if __name__ == '__main__':
                         default=8)  # 进程数目（多进程处理）
     args = parser.parse_args()
     main(args)
-
