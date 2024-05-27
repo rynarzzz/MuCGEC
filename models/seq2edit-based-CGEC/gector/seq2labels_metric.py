@@ -87,7 +87,8 @@ class Seq2LabelsMetric(nn.Module):
         return self.Labels_Accuracy + self.Tags_Accuracy + self.Labels_Accuracy_Except_Keep
 
     def get_metric(self, reset=False):
-        ret = {"labels_accuracy": self.Labels_Accuracy, "d_tags_accuracy": self.Tags_Accuracy, "labels_accuracy_except_keep": self.Labels_Accuracy_Except_Keep, "total_accuracy": self.Total_Accuracy}
+        ret = {"labels_accuracy": self.Labels_Accuracy, "d_tags_accuracy": self.Tags_Accuracy,
+               "labels_accuracy_except_keep": self.Labels_Accuracy_Except_Keep, "total_accuracy": self.Total_Accuracy}
         if reset:
             self.reset()
         return ret

@@ -21,7 +21,6 @@ def fix_seed(s):
     seed(s)
 
 
-
 def get_data(args, vocab):
     train_loader = init_dataloader(
         subset="train",
@@ -148,8 +147,6 @@ def main(args):
                         param_group['lr'] = args.lr
                     self.encoder_requires_grad = True
         train_loss, global_train_step = self._train_epoch(global_train_step)
-
-
 
     optimizer = AdamOptimizer(parameters, lr=args.lr, betas=(0.9, 0.999))
     scheduler = ReduceOnPlateauLearningRateScheduler(optimizer)

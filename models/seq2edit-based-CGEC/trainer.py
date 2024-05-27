@@ -26,21 +26,22 @@ from gector.seq2labels_model import Seq2Labels
 class Trainer:
 
     def __init__(self, args):
-        
+
         self.fix_seed()
         deepspeed.init_distributed()
         self.device = self.setup_device(args.local_rank)
         self.n_gpus = comm.get_world_size()
         self.log_interval = args.log_interval
         self.eval_interval = args.eval_interval
-        
+
         # to ensure each process has a summary writer
         self.summary_writer = None
         if comm.get_rank() == 0:
-            self.summary_writer = SummaryWriter(log_dir=args.tensorboard_dir) if args.tensorboard_dir is not None else None 
+            self.summary_writer = SummaryWriter(
+                log_dir=args.tensorboard_dir) if args.tensorboard_dir is not None else None
         self.import_ds_config_hyper_params(args.deepspeed_config)
         self.num_epochs = args.num_epochs
-        self.batch_size = args.batch_size #
+        self.batch_size = args.batch_size  #
         self.do_eval = args.do_eval
         self.cold_lr = args.cold_lr
         self.cold_step_count = args.cold_step_count
@@ -123,15 +124,16 @@ class Trainer:
 
         self.total_training_steps = int(len(self.train_loader) // self.gradient_accumulation_steps * self.num_epochs)
         # if save interval is not set by args, save at the end of each epoch
-        self.save_interval = args.save_interval if args.save_interval is not None else len(self.train_loader) // self.gradient_accumulation_steps
+        self.save_interval = args.save_interval if args.save_interval is not None else len(
+            self.train_loader) // self.gradient_accumulation_steps
         log_dist(f"set total training steps to {self.total_training_steps}", ranks=[0])
         self.model, self.optimizer, self.lr_scheduler = \
             self.setup_model_optimizer_and_scheduler(
-                                                    model=model, 
-                                                    config=args.deepspeed_config, 
-                                                    total_training_steps=self.total_training_steps,
-                                                    warmup=args.warmup)
-        
+                model=model,
+                config=args.deepspeed_config,
+                total_training_steps=self.total_training_steps,
+                warmup=args.warmup)
+
         self.best_accuracy = 0
         self.best_global_step = 0
         self.best_loss = float("inf")
@@ -168,11 +170,11 @@ class Trainer:
 
     def setup_model_optimizer_and_scheduler(self, model, config, total_training_steps: int, warmup: float):
         model, optimizer, _, _ = deepspeed.initialize(model=model,
-                                                        model_parameters=model.parameters(),
-                                                        config=config)
+                                                      model_parameters=model.parameters(),
+                                                      config=config)
         lr_scheduler = self.init_scheduler(optimizer=optimizer,
-                                        total_train_steps=total_training_steps,
-                                        warmup_ratio=warmup)
+                                           total_train_steps=total_training_steps,
+                                           warmup_ratio=warmup)
         # load ckpt and reset lr
         if self.model_dir and self.ckpt_id:
             model.load_checkpoint(self.model_dir, self.ckpt_id)
@@ -189,7 +191,7 @@ class Trainer:
             os.mkdir(self.save_dir)
 
         self.encoder_requires_grad = True
-        global_train_step = 0 # init a global step
+        global_train_step = 0  # init a global step
         for epoch in range(self.num_epochs):
             if isinstance(self.train_loader.sampler, torch.utils.data.DistributedSampler):
                 self.train_loader.sampler.set_epoch(epoch)
@@ -236,9 +238,9 @@ class Trainer:
 
             loss = outputs["loss"]
             if self.n_gpus > 1:
-                loss = loss.mean() # mean across gpus
+                loss = loss.mean()  # mean across gpus
             if self.gradient_accumulation_steps > 1:
-                loss = loss / self.gradient_accumulation_steps # loss avg across gradient accumulation steps
+                loss = loss / self.gradient_accumulation_steps  # loss avg across gradient accumulation steps
             self.model.backward(loss)
             self.model.step()
             loss_i = loss.detach().item()
@@ -249,7 +251,7 @@ class Trainer:
                     current_lr = self.lr_scheduler.get_last_lr()[0]
                 else:
                     current_lr = self.cold_lr
-                
+
                 if (step + 1) % self.log_interval == 0 or step == num_steps_per_epoch - 1:
                     info = {'Loss/train': loss_i, 'lr': current_lr}
                     pbar.set_postfix(info)
@@ -261,18 +263,18 @@ class Trainer:
                     if self.summary_writer is not None:
                         for metric, value in info.items():
                             self.summary_writer.add_scalar(metric, value, global_step=global_train_step)
-                if step >= num_steps_per_epoch - 1 or (step == num_steps_per_epoch -2 and drop_last_step):
+                if step >= num_steps_per_epoch - 1 or (step == num_steps_per_epoch - 2 and drop_last_step):
                     break
-                
+
                 if self.do_eval and (global_train_step + 1) % self.eval_interval == 0:
                     self.model.eval()
                     valid_loss, valid_acc = self.evaluate()
-                    comm.barrier() # sync here to make sure all ranks have metrics
+                    comm.barrier()  # sync here to make sure all ranks have metrics
                     if self.summary_writer is not None:
                         self.summary_writer.add_scalar("Loss/valid", valid_loss, global_train_step)
                         self.summary_writer.add_scalar("Acc/valid", valid_acc, global_train_step)
                     metrics = {"current_global_step": global_train_step, "current_train_loss": epoch_loss / (step + 1),
-                        "valid_loss": valid_loss, "valid_accuracy": valid_acc}
+                               "valid_loss": valid_loss, "valid_accuracy": valid_acc}
                     if comm.get_rank() == 0:
                         if valid_loss < self.best_loss:
                             self.best_loss = valid_loss

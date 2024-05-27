@@ -116,7 +116,8 @@ class GecBERTModel:
             t11 = time()
             predictions = []
             for batch, model in zip(batches, self.models):  # 每个模型预测自己对应的batch
-                batch = util.move_to_device(batch.as_tensor_dict(), self.cuda_device if torch.cuda.is_available() else -1)
+                batch = util.move_to_device(batch.as_tensor_dict(),
+                                            self.cuda_device if torch.cuda.is_available() else -1)
                 with torch.no_grad():  # 这里是预测，不需要累计梯度
                     prediction = model.forward(**batch)  # 通过seq2labels模型的前向传播，计算当前batch各word-token处的预测结果
                 predictions.append(prediction)
@@ -228,8 +229,9 @@ class GecBERTModel:
             d_tags_class_probs += weight * output['class_probabilities_d_tags'] / sum(self.model_weights)
             error_probs += weight * output['max_error_probability'] / sum(self.model_weights)
 
-        d_tags_idx = torch.max(d_tags_class_probs,dim=-1)[1]
-        max_vals = torch.max(all_class_probs,dim=-1)  # torch.max()函数会返回两个tensor，一个是最大值（这里是第3维的最大值），一个是最大值的索引，维度：[batch_size,seq_len]
+        d_tags_idx = torch.max(d_tags_class_probs, dim=-1)[1]
+        max_vals = torch.max(all_class_probs,
+                             dim=-1)  # torch.max()函数会返回两个tensor，一个是最大值（这里是第3维的最大值），一个是最大值的索引，维度：[batch_size,seq_len]
         probs = max_vals[0].tolist()  # 获得各源句子的各词标注为所有编辑label的概率中最大值，维度:[batch_size,seq_len]
         idx = max_vals[1].tolist()  # 获得各源句子的各词标注为所有编辑label的概率中最大值的索引，维度:[batch_size,seq_len]
         return probs, idx, error_probs.tolist(), d_tags_idx.tolist()
@@ -281,10 +283,10 @@ class GecBERTModel:
         all_results = []
         noop_index = self.vocab.get_token_index("$KEEP", "labels")  # 获得跳过操作的下标（即$KEEP编辑，保持当前词不变）
         for tokens, probabilities, idxs, error_prob, d_tags_idxs in zip(batch,
-                                                           all_probabilities,
-                                                           all_idxs,
-                                                           error_probs,
-                                                           all_d_tags_idxs):
+                                                                        all_probabilities,
+                                                                        all_idxs,
+                                                                        error_probs,
+                                                                        all_d_tags_idxs):
             length = min(len(tokens), max_len)  # 纠错长度（超过不纠错）
             edits = []  # 编辑操作，例子：[(1, 2, '$TRANSFORM_VERB_VBZ_VB', 0.9100876450538635)]
 

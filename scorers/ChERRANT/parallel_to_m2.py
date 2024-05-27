@@ -14,6 +14,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 annotator, sentence_to_tokenized = None, None
 cc = OpenCC("t2s")
 
+
 def annotate(line):
     """
     :param line:
@@ -43,6 +44,7 @@ def annotate(line):
         except Exception:
             raise Exception
     return output_str
+
 
 def main(args):
     tokenizer = Tokenizer(args.granularity, args.device, args.segmented, args.bpe)
@@ -84,14 +86,14 @@ def main(args):
             results = tokenizer(batch)
             for s, r in zip(batch, results):
                 sentence_to_tokenized[s] = r  # Get tokenization map.
-    
+
         # 单进程模式
         for line in tqdm(lines):
             ret = annotate(line)
             f.write(ret)
-            f.write("\n") 
+            f.write("\n")
 
-        # 多进程模式：仅在Linux环境下测试，建议在linux服务器上使用
+            # 多进程模式：仅在Linux环境下测试，建议在linux服务器上使用
         # with Pool(args.worker_num) as pool:
         #     for ret in pool.imap(annotate, tqdm(lines), chunksize=8):
         #         if ret:
@@ -106,11 +108,15 @@ if __name__ == "__main__":
     parser.add_argument("-b", "--batch_size", type=int, help="The size of batch", default=128)
     parser.add_argument("-d", "--device", type=int, help="The ID of GPU", default=0)
     parser.add_argument("-w", "--worker_num", type=int, help="The number of workers", default=16)
-    parser.add_argument("-g", "--granularity", type=str, help="Choose char-level or word-level evaluation", default="char")
-    parser.add_argument("-m", "--merge", help="Whether merge continuous replacement/deletion/insertion", action="store_true")
+    parser.add_argument("-g", "--granularity", type=str, help="Choose char-level or word-level evaluation",
+                        default="char")
+    parser.add_argument("-m", "--merge", help="Whether merge continuous replacement/deletion/insertion",
+                        action="store_true")
     parser.add_argument("-s", "--multi_cheapest_strategy", type=str, choices=["first", "all"], default="all")
-    parser.add_argument("--segmented", help="Whether tokens have been segmented", action="store_true")  # 支持提前token化，用空格隔开
-    parser.add_argument("--no_simplified", help="Whether simplifying chinese", action="store_true")  # 将所有corrections转换为简体中文
+    parser.add_argument("--segmented", help="Whether tokens have been segmented",
+                        action="store_true")  # 支持提前token化，用空格隔开
+    parser.add_argument("--no_simplified", help="Whether simplifying chinese",
+                        action="store_true")  # 将所有corrections转换为简体中文
     parser.add_argument("--bpe", help="Whether to use bpe", action="store_true")  # 支持 bpe 切分英文单词
     args = parser.parse_args()
     main(args)

@@ -16,11 +16,12 @@ parser.add_argument('-b', '--batch_size', default=50)
 args = parser.parse_args()
 
 cc = OpenCC("t2s")
-tokenizer=BertTokenizer.from_pretrained(args.model_path)
-model=BartForConditionalGeneration.from_pretrained(args.model_path)
+tokenizer = BertTokenizer.from_pretrained(args.model_path)
+model = BartForConditionalGeneration.from_pretrained(args.model_path)
 model.eval()
 model.half()
 model.cuda()
+
 
 def split_sentence(document: str, flag: str = "all", limit: int = 510):
     """
@@ -59,12 +60,13 @@ def split_sentence(document: str, flag: str = "all", limit: int = 510):
         sent_list.append(document)
     return sent_list
 
+
 def run_model(sents):
     num_ret_seqs = 1
     beam = 5
     inp_max_len = 100
     batch = [tokenizer(s, return_tensors='pt', padding='max_length', max_length=inp_max_len) for s in sents]
-    oidx2bidx = {} #original index to final batch index
+    oidx2bidx = {}  # original index to final batch index
     final_batch = []
     for oidx, elm in enumerate(batch):
         if elm['input_ids'].size(1) <= inp_max_len:
@@ -73,14 +75,15 @@ def run_model(sents):
     batch = {key: torch.cat([elm[key] for elm in final_batch], dim=0) for key in final_batch[0]}
     with torch.no_grad():
         generated_ids = model.generate(batch['input_ids'].cuda(),
-                                attention_mask=batch['attention_mask'].cuda(),
-                                num_beams=beam, num_return_sequences=num_ret_seqs, max_length=inp_max_len)
+                                       attention_mask=batch['attention_mask'].cuda(),
+                                       num_beams=beam, num_return_sequences=num_ret_seqs, max_length=inp_max_len)
     _out = tokenizer.batch_decode(generated_ids.detach().cpu(), skip_special_tokens=True)
     outs = []
     for i in range(0, len(_out), num_ret_seqs):
-        outs.append(_out[i:i+num_ret_seqs])
+        outs.append(_out[i:i + num_ret_seqs])
     final_outs = [[sents[oidx]] if oidx not in oidx2bidx else outs[oidx2bidx[oidx]] for oidx in range(len(sents))]
     return final_outs
+
 
 def predict():
     sents = [l.strip() for l in open(args.input_path)]  # 分句
@@ -94,7 +97,7 @@ def predict():
     b_size = args.batch_size
     outs = []
     for j in tqdm(range(0, len(subsents), b_size)):
-        sents_batch = subsents[j:j+b_size]
+        sents_batch = subsents[j:j + b_size]
         outs_batch = run_model(sents_batch)
         for sent, preds in zip(sents_batch, outs_batch):
             outs.append({'src': sent, 'preds': preds})
@@ -104,5 +107,6 @@ def predict():
             results[s_map[i]] += cc.convert(out['preds'][0])
         for res in results:
             outf.write(res + "\n")
+
 
 predict()

@@ -1,17 +1,22 @@
 import argparse
 from collections import Counter
 
+
 def main():
     # Parse command line args
     args = parse_args()
     # Open hypothesis and reference m2 files and split into chunks
-    hyp_m2 = open(args.hyp).read().strip().split("\n\n")[args.start:args.end] if args.start is not None and args.end is not None else open(args.hyp).read().strip().split("\n\n")
-    ref_m2 = open(args.ref).read().strip().split("\n\n")[args.start:args.end] if args.start is not None and args.end is not None else open(args.ref).read().strip().split("\n\n")
+    hyp_m2 = open(args.hyp).read().strip().split("\n\n")[
+             args.start:args.end] if args.start is not None and args.end is not None else open(
+        args.hyp).read().strip().split("\n\n")
+    ref_m2 = open(args.ref).read().strip().split("\n\n")[
+             args.start:args.end] if args.start is not None and args.end is not None else open(
+        args.ref).read().strip().split("\n\n")
     # Make sure they have the same number of sentences
     assert len(hyp_m2) == len(ref_m2), print(len(hyp_m2), len(ref_m2))
 
     # Store global corpus level best counts here
-    best_dict = Counter({"tp":0, "fp":0, "fn":0})
+    best_dict = Counter({"tp": 0, "fp": 0, "fn": 0})
     best_cats = {}
     # Process each sentence
     sents = zip(hyp_m2, ref_m2)
@@ -25,10 +30,10 @@ def main():
         # Process the edits for detection/correction based on args
         hyp_dict = process_edits(hyp_edits, args)
         ref_dict = process_edits(ref_edits, args)
-        if  args.reference_num is None or len(ref_dict.keys()) == args.reference_num:
+        if args.reference_num is None or len(ref_dict.keys()) == args.reference_num:
             # Evaluate edits and get best TP, FP, FN hyp+ref combo.
             count_dict, cat_dict = evaluate_edits(src,
-                hyp_dict, ref_dict, best_dict, sent_id, args)
+                                                  hyp_dict, ref_dict, best_dict, sent_id, args)
             # Merge these dicts with best_dict and best_cats
             best_dict += Counter(count_dict)
             best_cats = merge_dict(best_cats, cat_dict)
@@ -37,11 +42,12 @@ def main():
     # print(sent_id_cons)
     # print(len(sent_id_cons))
 
+
 # Parse command line args
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Calculate F-scores for error detection and/or correction.\n"
-            "Flags let you evaluate at different levels of granularity.",
+                    "Flags let you evaluate at different levels of granularity.",
         formatter_class=argparse.RawTextHelpFormatter,
         usage="%(prog)s [options] -hyp HYP -ref REF")
     parser.add_argument(
@@ -115,7 +121,7 @@ def parse_args():
     parser.add_argument(
         "-multi_hyp_max",
         help="When get multiple hypotheses for a sentence, calculate their F-scores and select the max one for this sentence.",
-        action="store_true")    # For multiple hypotheses system evaluation
+        action="store_true")  # For multiple hypotheses system evaluation
     parser.add_argument(
         "-filt",
         help="Do not evaluate the specified error types.",
@@ -124,13 +130,14 @@ def parse_args():
     parser.add_argument(
         "-cat",
         help="Show error category scores.\n"
-            "1: Only show operation tier scores; e.g. R.\n"
-            "2: Only show main tier scores; e.g. NOUN.\n"
-            "3: Show all category scores; e.g. R:NOUN.",
+             "1: Only show operation tier scores; e.g. R.\n"
+             "2: Only show main tier scores; e.g. NOUN.\n"
+             "3: Show all category scores; e.g. R:NOUN.",
         choices=[1, 2, 3],
         type=int)
     args = parser.parse_args()
     return args
+
 
 # Input: An m2 format sentence with edits.
 # Output: A list of lists. Each edit: [start, end, cat, cor, coder]
@@ -142,7 +149,7 @@ def simplify_edits(sent, max_answer_num):
     for edit in edits:
         # Preprocessing
         if edit.startswith("A "):
-            edit = edit[2:].split("|||") # Ignore "A " then split.
+            edit = edit[2:].split("|||")  # Ignore "A " then split.
             span = edit[0].split()
             start = int(span[0])
             end = int(span[1])
@@ -160,6 +167,7 @@ def simplify_edits(sent, max_answer_num):
         return [edit for edit in out_edits if edit[-1] in [0, 1]]
     elif max_answer_num == 3:
         return [edit for edit in out_edits if edit[-1] in [0, 1, 2]]
+
 
 # Input 1: A list of edits. Each edit: [start, end, cat, cor, coder]
 # Input 2: Command line args
@@ -183,9 +191,9 @@ def process_edits(edits, args):
         # 1. UNK type edits are only useful for detection, not correction.
         if not args.dt and not args.ds and cat == "UNK": continue
         # 2. Only evaluate single token edits; i.e. 0:1, 1:0 or 1:1
-        if args.single and (end-start >= 2 or len(cor.split()) >= 2): continue
+        if args.single and (end - start >= 2 or len(cor.split()) >= 2): continue
         # 3. Only evaluate multi token edits; i.e. 2+:n or n:2+
-        if args.multi and end-start < 2 and len(cor.split()) < 2: continue
+        if args.multi and end - start < 2 and len(cor.split()) < 2: continue
         # 4. If there is a filter, ignore the specified error types
         if args.filt and cat in args.filt: continue
 
@@ -199,17 +207,17 @@ def process_edits(edits, args):
                     coder_dict[coder][(start, start)] = [cat]
             # Insertions defined as affecting the token on the right
             elif start == end and start >= 0:
-                if (start, start+1) in coder_dict[coder].keys():
-                    coder_dict[coder][(start, start+1)].append(cat)
+                if (start, start + 1) in coder_dict[coder].keys():
+                    coder_dict[coder][(start, start + 1)].append(cat)
                 else:
-                    coder_dict[coder][(start, start+1)] = [cat]
+                    coder_dict[coder][(start, start + 1)] = [cat]
             # Edit spans are split for each token in the range.
             else:
                 for tok_id in range(start, end):
-                    if (tok_id, tok_id+1) in coder_dict[coder].keys():
-                        coder_dict[coder][(tok_id, tok_id+1)].append(cat)
+                    if (tok_id, tok_id + 1) in coder_dict[coder].keys():
+                        coder_dict[coder][(tok_id, tok_id + 1)].append(cat)
                     else:
-                        coder_dict[coder][(tok_id, tok_id+1)] = [cat]
+                        coder_dict[coder][(tok_id, tok_id + 1)] = [cat]
 
         # Span Based Detection
         elif args.ds:
@@ -234,6 +242,7 @@ def process_edits(edits, args):
                     coder_dict[coder][(start, end, cor)] = [cat]
     return coder_dict
 
+
 # Input 1: A hyp dict; key is coder_id, value is dict of processed hyp edits.
 # Input 2: A ref dict; key is coder_id, value is dict of processed ref edits.
 # Input 3: A dictionary of the best corpus level TP, FP and FN counts so far.
@@ -252,7 +261,7 @@ def evaluate_edits(src, hyp_dict, ref_dict, best, sent_id, args):
         if len(ref_dict[ref_id].keys()) == 1:
             cat = list(ref_dict[ref_id].values())[0][0]
             if cat == "NA":
-                best_dict = {"tp":best_tp, "fp":best_fp, "fn":best_fn}
+                best_dict = {"tp": best_tp, "fp": best_fp, "fn": best_fn}
                 return best_dict, best_cat
 
     # Compare each hyp and ref combination
@@ -264,16 +273,16 @@ def evaluate_edits(src, hyp_dict, ref_dict, best, sent_id, args):
             loc_p, loc_r, loc_f = computeFScore(tp, fp, fn, args.beta)
             # Compute the global sentence scores
             p, r, f = computeFScore(
-                tp+best["tp"], fp+best["fp"], fn+best["fn"], args.beta)
+                tp + best["tp"], fp + best["fp"], fn + best["fn"], args.beta)
             # Save the scores if they are better in terms of:
             # 1. Higher F-score
             # 2. Same F-score, higher TP
             # 3. Same F-score and TP, lower FP
             # 4. Same F-score, TP and FP, lower FN
-            if     (f > best_f) or \
-                (f == best_f and tp > best_tp) or \
-                (f == best_f and tp == best_tp and fp < best_fp) or \
-                (f == best_f and tp == best_tp and fp == best_fp and fn < best_fn):
+            if (f > best_f) or \
+                    (f == best_f and tp > best_tp) or \
+                    (f == best_f and tp == best_tp and fp < best_fp) or \
+                    (f == best_f and tp == best_tp and fp == best_fp and fn < best_fn):
                 best_tp, best_fp, best_fn = tp, fp, fn
                 best_f, best_hyp, best_ref = f, hyp_id, ref_id
                 best_cat = cat_dict
@@ -287,32 +296,33 @@ def evaluate_edits(src, hyp_dict, ref_dict, best, sent_id, args):
                 if not ref_verb or ref_verb[0][0] == -1: ref_verb = []
                 # Print verbose info
                 print('{:-^40}'.format(""))
-                print("SENTENCE "+str(sent_id)+src[1:])
+                print("SENTENCE " + str(sent_id) + src[1:])
                 print('{:-^40}'.format(""))
-                print("SENTENCE "+str(sent_id)+" - HYP "+str(hyp_id)+" - REF "+str(ref_id))
+                print("SENTENCE " + str(sent_id) + " - HYP " + str(hyp_id) + " - REF " + str(ref_id))
                 print("HYPOTHESIS EDITS :", hyp_verb)
                 print("REFERENCE EDITS  :", ref_verb)
                 print("Local TP/FP/FN   :", str(tp), str(fp), str(fn))
-                print("Local P/R/F"+str(args.beta)+"  :", str(loc_p), str(loc_r), str(loc_f))
-                print("Global TP/FP/FN  :", str(tp+best["tp"]), str(fp+best["fp"]), str(fn+best["fn"]))
-                print("Global P/R/F"+str(args.beta)+"  :", str(p), str(r), str(f))
+                print("Local P/R/F" + str(args.beta) + "  :", str(loc_p), str(loc_r), str(loc_f))
+                print("Global TP/FP/FN  :", str(tp + best["tp"]), str(fp + best["fp"]), str(fn + best["fn"]))
+                print("Global P/R/F" + str(args.beta) + "  :", str(p), str(r), str(f))
     # Verbose output: display the best hyp+ref combination
     if args.verbose:
         print('{:-^40}'.format(""))
-        print("^^ HYP "+str(best_hyp)+", REF "+str(best_ref)+" chosen for sentence "+str(sent_id))
+        print("^^ HYP " + str(best_hyp) + ", REF " + str(best_ref) + " chosen for sentence " + str(sent_id))
     # Save the best TP, FP and FNs as a dict, and return this and the best_cat dict
-    best_dict = {"tp":best_tp, "fp":best_fp, "fn":best_fn}
+    best_dict = {"tp": best_tp, "fp": best_fp, "fn": best_fn}
     return best_dict, best_cat
+
 
 # Input 1: A dictionary of hypothesis edits for a single system.
 # Input 2: A dictionary of reference edits for a single annotator.
 # Output 1-3: The TP, FP and FN for the hyp vs the given ref annotator.
 # Output 4: A dictionary of the error type counts.
 def compareEdits(hyp_edits, ref_edits):
-    tp = 0    # True Positives
-    fp = 0    # False Positives
-    fn = 0    # False Negatives
-    cat_dict = {} # {cat: [tp, fp, fn], ...}
+    tp = 0  # True Positives
+    fp = 0  # False Positives
+    fn = 0  # False Negatives
+    cat_dict = {}  # {cat: [tp, fp, fn], ...}
 
     for h_edit, h_cats in hyp_edits.items():
         # noop hyp edits cannot be TP or FP
@@ -320,7 +330,7 @@ def compareEdits(hyp_edits, ref_edits):
         # TRUE POSITIVES
         if h_edit in ref_edits.keys():
             # On occasion, multiple tokens at same span.
-            for h_cat in ref_edits[h_edit]: # Use ref dict for TP
+            for h_cat in ref_edits[h_edit]:  # Use ref dict for TP
                 tp += 1
                 # Each dict value [TP, FP, FN]
                 if h_cat in cat_dict.keys():
@@ -352,24 +362,27 @@ def compareEdits(hyp_edits, ref_edits):
                     cat_dict[r_cat] = [0, 0, 1]
     return tp, fp, fn, cat_dict
 
+
 # Input 1-3: True positives, false positives, false negatives
 # Input 4: Value of beta in F-score.
 # Output 1-3: Precision, Recall and F-score rounded to 4dp.
 def computeFScore(tp, fp, fn, beta):
-    p = float(tp)/(tp+fp) if fp else 1.0
-    r = float(tp)/(tp+fn) if fn else 1.0
-    f = float((1+(beta**2))*p*r)/(((beta**2)*p)+r) if p+r else 0.0
+    p = float(tp) / (tp + fp) if fp else 1.0
+    r = float(tp) / (tp + fn) if fn else 1.0
+    f = float((1 + (beta ** 2)) * p * r) / (((beta ** 2) * p) + r) if p + r else 0.0
     return round(p, 4), round(r, 4), round(f, 4)
+
 
 # Input 1-2: Two error category dicts. Key is cat, value is list of TP, FP, FN.
 # Output: The dictionaries combined with cumulative TP, FP, FN.
 def merge_dict(dict1, dict2):
     for cat, stats in dict2.items():
         if cat in dict1.keys():
-            dict1[cat] = [x+y for x, y in zip(dict1[cat], stats)]
+            dict1[cat] = [x + y for x, y in zip(dict1[cat], stats)]
         else:
             dict1[cat] = stats
     return dict1
+
 
 # Input 1: A dict; key is error cat, value is counts for [tp, fp, fn]
 # Input 2: Integer value denoting level of error category granularity.
@@ -385,13 +398,13 @@ def processCategories(cat_dict, setting):
         # M, U, R or UNK combined only.
         if setting == 1:
             if cat[0] in proc_cat_dict.keys():
-                proc_cat_dict[cat[0]] = [x+y for x, y in zip(proc_cat_dict[cat[0]], cnt)]
+                proc_cat_dict[cat[0]] = [x + y for x, y in zip(proc_cat_dict[cat[0]], cnt)]
             else:
                 proc_cat_dict[cat[0]] = cnt
         # Everything without M, U or R.
         elif setting == 2:
             if cat[2:] in proc_cat_dict.keys():
-                proc_cat_dict[cat[2:]] = [x+y for x, y in zip(proc_cat_dict[cat[2:]], cnt)]
+                proc_cat_dict[cat[2:]] = [x + y for x, y in zip(proc_cat_dict[cat[2:]], cnt)]
             else:
                 proc_cat_dict[cat[2:]] = cnt
         # All error category combinations
@@ -399,15 +412,20 @@ def processCategories(cat_dict, setting):
             return cat_dict
     return proc_cat_dict
 
+
 # Input 1: A dict of global best TP, FP and FNs
 # Input 2: A dict of error types and counts for those TP, FP and FNs
 # Input 3: Command line args
 def print_results(best, best_cats, args):
     # Prepare output title.
-    if args.dt: title = " Token-Based Detection "
-    elif args.ds: title = " Span-Based Detection "
-    elif args.cse: title = " Span-Based Correction + Classification "
-    else: title = " Span-Based Correction "
+    if args.dt:
+        title = " Token-Based Detection "
+    elif args.ds:
+        title = " Span-Based Detection "
+    elif args.cse:
+        title = " Span-Based Correction + Classification "
+    else:
+        title = " Span-Based Correction "
 
     # Category Scores
     if args.cat:
@@ -415,20 +433,21 @@ def print_results(best, best_cats, args):
         print("")
         print('{:=^66}'.format(title))
         print("Category".ljust(14), "TP".ljust(8), "FP".ljust(8), "FN".ljust(8),
-            "P".ljust(8), "R".ljust(8), "F"+str(args.beta))
+              "P".ljust(8), "R".ljust(8), "F" + str(args.beta))
         for cat, cnts in sorted(best_cats.items()):
             cat_p, cat_r, cat_f = computeFScore(cnts[0], cnts[1], cnts[2], args.beta)
             print(cat.ljust(14), str(cnts[0]).ljust(8), str(cnts[1]).ljust(8),
-                str(cnts[2]).ljust(8), str(cat_p).ljust(8), str(cat_r).ljust(8), cat_f)
+                  str(cnts[2]).ljust(8), str(cat_p).ljust(8), str(cat_r).ljust(8), cat_f)
 
     # Print the overall results.
     print("")
     print('{:=^46}'.format(title))
-    print("\t".join(["TP", "FP", "FN", "Prec", "Rec", "F"+str(args.beta)]))
+    print("\t".join(["TP", "FP", "FN", "Prec", "Rec", "F" + str(args.beta)]))
     print("\t".join(map(str, [best["tp"], best["fp"],
-        best["fn"]]+list(computeFScore(best["tp"], best["fp"], best["fn"], args.beta)))))
+                              best["fn"]] + list(computeFScore(best["tp"], best["fp"], best["fn"], args.beta)))))
     print('{:=^46}'.format(""))
     print("")
+
 
 if __name__ == "__main__":
     # Run the program

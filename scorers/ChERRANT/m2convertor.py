@@ -13,7 +13,7 @@ class M2Processor():
         self.edit_lines = edit_lines
         self.edits = {}
         self.trg_sents = []
-        
+
     def conv_edit(self, line):
         line = line.strip().split("|||")
         edit_span = line[0].split(" ")
@@ -29,7 +29,7 @@ class M2Processor():
         else:
             edit_tag = "REP"
         return editor, edit_tag, edit_span, edit_res
-    
+
     def get_edits(self):
         for line in self.edit_lines:
             if line:
@@ -40,7 +40,7 @@ class M2Processor():
                 if editor not in self.edits:
                     self.edits[editor] = []
                 self.edits[editor].append({"span": edit_span, "op": edit_tag, "res": edit_res})
-                
+
     def get_para(self):
         self.get_edits()
         if self.edits:
@@ -53,12 +53,12 @@ class M2Processor():
                     else:
                         if edit_tag == "ADD":
                             if edit_span[0] != 0:
-                                sent[edit_span[0]-1] += " " + trg_tokens
+                                sent[edit_span[0] - 1] += " " + trg_tokens
                             else:
                                 sent[edit_span[0]] = trg_tokens + " " + sent[edit_span[0]]
                         elif edit_tag == "REP":
                             src_tokens_len = len(sent[edit_span[0]:edit_span[1]])
-                            sent[edit_span[0]:edit_span[1]] = [trg_tokens] + [" " for _ in range(src_tokens_len-1)]
+                            sent[edit_span[0]:edit_span[1]] = [trg_tokens] + [" " for _ in range(src_tokens_len - 1)]
                 sent = " ".join(sent).strip()
                 res_sent = re.sub(" +", " ", sent)
                 self.trg_sents.append(res_sent)
@@ -66,7 +66,7 @@ class M2Processor():
         else:
             return [self.src_sent]
 
-    
+
 def read_file():
     src_sent = None
     edit_lines = []
@@ -91,9 +91,9 @@ def main():
         m2_item = M2Processor(src_sent, edit_lines)
         trg_sents = m2_item.get_para()
         prefix_counter = 0
-        fw_trg.write(trg_sents[0]+"\n")
+        fw_trg.write(trg_sents[0] + "\n")
     fw_trg.close()
- 
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

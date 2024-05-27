@@ -3,6 +3,7 @@ from modules.alignment import read_cilin, read_confusion, Alignment
 from modules.merger import Merger
 from modules.classifier import Classifier
 
+
 class Annotator:
     def __init__(self,
                  align: Alignment,
@@ -42,7 +43,7 @@ class Annotator:
         tgt_str = "".join(tgt_tokens)
         # convert to text form
         annotations_out = ["S " + " ".join(src_tokens) + "\n"]
-        if tgt_str == "没有错误" or src_str == tgt_str:   # Error Free Case
+        if tgt_str == "没有错误" or src_str == tgt_str:  # Error Free Case
             annotations_out.append(f"T{annotator_id} 没有错误\n")
             cors = [tgt_str]
             op, toks, inds = "noop", "-NONE-", (-1, -1)

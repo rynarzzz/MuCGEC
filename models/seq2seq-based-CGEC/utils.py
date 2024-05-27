@@ -1,9 +1,9 @@
-
 from dataclasses import dataclass, field
 from typing import Optional
 import sys
 import json
 from datasets import Dataset
+
 
 def read_lines(file):
     lines = []
@@ -12,15 +12,17 @@ def read_lines(file):
         lines.append(line.replace(" ", ""))
     return lines
 
+
 def load_json(file_path):
-    results={'summarization':[],'article':[]}
-    with open(file_path,encoding='utf-8') as f:
-        content=json.load(f)
+    results = {'summarization': [], 'article': []}
+    with open(file_path, encoding='utf-8') as f:
+        content = json.load(f)
         for sample in content:
             results['summarization'].append(sample['summarization'])
             results['article'].append(sample['article'])
-        results=Dataset.from_dict(results)
+        results = Dataset.from_dict(results)
     return results
+
 
 def convert_parallel_data_to_json_file(source_data_file, target_data_file, json_data_file):
     json_list = []
@@ -30,8 +32,9 @@ def convert_parallel_data_to_json_file(source_data_file, target_data_file, json_
             for s, t in zip(src_lines, tgt_lines):
                 if s != t:
                     dic = {"summarization": t, "article": s}
-                    json_list.append(dic)   
+                    json_list.append(dic)
     json.dump(json_list, open(json_data_file, "w", encoding='utf-8'), ensure_ascii=False)
+
 
 def convert_input_data_to_json_file(input_data_file, json_data_file):
     json_list = []
@@ -39,8 +42,9 @@ def convert_input_data_to_json_file(input_data_file, json_data_file):
         src_lines = read_lines(f)
         for s in src_lines:
             dic = {"summarization": "", "article": s}
-            json_list.append(dic)   
+            json_list.append(dic)
     json.dump(json_list, open(json_data_file, "w", encoding='utf-8'), ensure_ascii=False)
+
 
 @dataclass
 class ModelArguments:
@@ -73,7 +77,7 @@ class ModelArguments:
         default=False,
         metadata={
             "help": "Will use the token generated when running `transformers-cli login` (necessary to use this script "
-            "with private models)."
+                    "with private models)."
         },
     )
 
@@ -105,7 +109,7 @@ class DataTrainingArguments:
         default=None,
         metadata={
             "help": "An optional input evaluation data file to evaluate the metrics (rouge) on "
-            "(a jsonlines or csv file)."
+                    "(a jsonlines or csv file)."
         },
     )
     test_file: Optional[str] = field(
@@ -125,59 +129,59 @@ class DataTrainingArguments:
         default=1024,
         metadata={
             "help": "The maximum total input sequence length after tokenization. Sequences longer "
-            "than this will be truncated, sequences shorter will be padded."
+                    "than this will be truncated, sequences shorter will be padded."
         },
     )
     max_target_length: Optional[int] = field(
         default=128,
         metadata={
             "help": "The maximum total sequence length for target text after tokenization. Sequences longer "
-            "than this will be truncated, sequences shorter will be padded."
+                    "than this will be truncated, sequences shorter will be padded."
         },
     )
     val_max_target_length: Optional[int] = field(
         default=None,
         metadata={
             "help": "The maximum total sequence length for validation target text after tokenization. Sequences longer "
-            "than this will be truncated, sequences shorter will be padded. Will default to `max_target_length`."
-            "This argument is also used to override the ``max_length`` param of ``model.generate``, which is used "
-            "during ``evaluate`` and ``predict``."
+                    "than this will be truncated, sequences shorter will be padded. Will default to `max_target_length`."
+                    "This argument is also used to override the ``max_length`` param of ``model.generate``, which is used "
+                    "during ``evaluate`` and ``predict``."
         },
     )
     pad_to_max_length: bool = field(
         default=False,
         metadata={
             "help": "Whether to pad all samples to model maximum sentence length. "
-            "If False, will pad the samples dynamically when batching to the maximum length in the batch. More "
-            "efficient on GPU but very bad for TPU."
+                    "If False, will pad the samples dynamically when batching to the maximum length in the batch. More "
+                    "efficient on GPU but very bad for TPU."
         },
     )
     max_train_samples: Optional[int] = field(
         default=None,
         metadata={
             "help": "For debugging purposes or quicker training, truncate the number of training examples to this "
-            "value if set."
+                    "value if set."
         },
     )
     max_val_samples: Optional[int] = field(
         default=None,
         metadata={
             "help": "For debugging purposes or quicker training, truncate the number of validation examples to this "
-            "value if set."
+                    "value if set."
         },
     )
     max_test_samples: Optional[int] = field(
         default=None,
         metadata={
             "help": "For debugging purposes or quicker training, truncate the number of test examples to this "
-            "value if set."
+                    "value if set."
         },
     )
     num_beams: Optional[int] = field(
         default=None,
         metadata={
             "help": "Number of beams to use for evaluation. This argument will be passed to ``model.generate``, "
-            "which is used during ``evaluate`` and ``predict``."
+                    "which is used during ``evaluate`` and ``predict``."
         },
     )
     ignore_pad_token_for_loss: bool = field(
@@ -203,9 +207,10 @@ class DataTrainingArguments:
         if self.val_max_target_length is None:
             self.val_max_target_length = self.max_target_length
 
+
 if __name__ == "__main__":
     args = sys.argv[1:]
     if len(args) == 2:
-        convert_input_data_to_json_file(args[0],args[1])
+        convert_input_data_to_json_file(args[0], args[1])
     elif len(args) == 3:
-        convert_parallel_data_to_json_file(args[0], args[1],args[2])
+        convert_parallel_data_to_json_file(args[0], args[1], args[2])

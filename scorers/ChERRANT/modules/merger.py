@@ -5,6 +5,7 @@ from modules.tokenizer import Tokenizer
 from modules.alignment import Alignment, read_cilin, read_confusion
 import Levenshtein
 
+
 class Merger:
     """
     合并编辑操作，从Token-Level转换为Span-Level
@@ -69,8 +70,8 @@ class Merger:
         # Todo 一旦插入、删除、替换的对象中含有标点，那么不与其它编辑合并
         # Todo 缺失成分标签也不与其它编辑合并
         for op, group in groupby(
-            align_obj,
-            lambda x: x[0][0] if x[0][0] in {"M", "T"}  else False,
+                align_obj,
+                lambda x: x[0][0] if x[0][0] in {"M", "T"} else False,
         ):
             group = list(group)
             # T is always split TODO: Evaluate this
@@ -106,7 +107,7 @@ class Merger:
                     if min([len(w1), len(w2), len(w3), len(w4)]) == 1:
                         if w1 == w4 and w2 == w3:
                             group = [edits[i], edits[i + 1], edits[i + 2]]
-                            processed = self._merge_edits(group, "T" + str(edits[i+2][2] - edits[i][1]))
+                            processed = self._merge_edits(group, "T" + str(edits[i + 2][2] - edits[i][1]))
                             for seq in processed:
                                 filtered_edits.append(seq)
                             i += 3
@@ -128,7 +129,8 @@ class Merger:
                 #   D        M              I
                 # 旅游 去   陌生 的   地方
                 #      去   陌生 的   地方  旅游
-                elif (e1 == "D" and (e2 == "M" or e2.startswith("T")) and e3 == "I") or (e1 == "I" and (e2 == "M" or e2.startswith("T")) and e3 == "D"):
+                elif (e1 == "D" and (e2 == "M" or e2.startswith("T")) and e3 == "I") or (
+                        e1 == "I" and (e2 == "M" or e2.startswith("T")) and e3 == "D"):
                     if e1 == "D":
                         delete_token = src_tokens[edits[i][1]: edits[i][2]]
                         insert_token = tgt_tokens[edits[i + 2][3]: edits[i + 2][4]]
@@ -142,7 +144,7 @@ class Merger:
                         if len(b) == 1:
                             if a == b:
                                 group = [edits[i], edits[i + 1], edits[i + 2]]
-                                processed = self._merge_edits(group, "T" + str(edits[i+2][2] - edits[i][1]))
+                                processed = self._merge_edits(group, "T" + str(edits[i + 2][2] - edits[i][1]))
                                 for seq in processed:
                                     filtered_edits.append(seq)
                                 i += 3
@@ -178,8 +180,8 @@ class Merger:
         # We need to filter this case out
         second_filter = []
         for edit in filtered_edits:  # 避免因为分词错误导致的mismatch现象
-            span1 = "".join(src_tokens[edit[1] : edit[2]])
-            span2 = "".join(tgt_tokens[edit[3] : edit[4]])
+            span1 = "".join(src_tokens[edit[1]: edit[2]])
+            span2 = "".join(tgt_tokens[edit[3]: edit[4]])
 
             if span1 != span2:
                 if edit[0] == "S":
@@ -256,6 +258,7 @@ class Merger:
             print(str(src))
             print(str(tgt))
         return second_filter
+
 
 if __name__ == "__main__":
     tokenizer = Tokenizer("char")

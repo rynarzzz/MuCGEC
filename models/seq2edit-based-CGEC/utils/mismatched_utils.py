@@ -4,6 +4,7 @@ A tweak version of Allennlp's pretrained_transformer_mismatched_indexer/embedder
 """
 import torch
 
+
 class MisMatchedTokenizer:
     def __init__(self, tokenizer, tokenizer_vocab, max_pieces_per_token=None, special_start_token_ids=[]):
         self.tokenizer = tokenizer
@@ -32,7 +33,7 @@ class MisMatchedTokenizer:
             if max_tokens and num_tokens > max_tokens:
                 break
             offsets.append((len(input_ids), len(
-                input_ids)+len(wordpiece_ids)-1))
+                input_ids) + len(wordpiece_ids) - 1))
             input_ids.extend(wordpiece_ids)
             truncated_seq_length += 1
         if add_special_tokens:
@@ -45,7 +46,7 @@ class MisMatchedTokenizer:
         return self.special_start_token_ids + input_ids
 
     def _increment_offsets(self, offsets, increment):
-        return [(offset[0] + increment, offset[1]+increment) for offset in offsets]
+        return [(offset[0] + increment, offset[1] + increment) for offset in offsets]
 
 
 class MisMatchedSampleIndexer:
@@ -87,7 +88,7 @@ class MisMatchedEmbedder:
 
         # get the desired shape: (bsz, seq_len, span_width, hidden_size)
         selected_shape = list(span_indices.size()) + \
-            [wordpiece_embeddings.size(-1)]
+                         [wordpiece_embeddings.size(-1)]
         selected_embeddings = flattened_selected_embeddings.view(
             *selected_shape)
         return selected_embeddings
@@ -98,7 +99,7 @@ class MisMatchedEmbedder:
             0), dtype=torch.long).to(self.device) * seq_len
         # shape: (bsz, 1, 1)
         # this operation maps the dim of span_indices
-        for _ in range(len(span_indices.size())-1):
+        for _ in range(len(span_indices.size()) - 1):
             offsets = offsets.unsqueeze(1)
 
         # indices are shifted considering the idx in the whole batch, i.e,
@@ -143,7 +144,7 @@ class MisMatchedEmbedder:
         # this is different from allennlp's implementation, which also takes (-1,-1) offsets into account
         # where we replace special tokens to [UNK], which becomes normal offsets in later procedure.
         span_mask = span_mask & (
-            raw_span_indices < wordpiece_embeddings.size(1))
+                raw_span_indices < wordpiece_embeddings.size(1))
         # mask invalid values which are mentioned above
         span_indices = raw_span_indices * span_mask
         span_embeddings = self._batched_index_select(

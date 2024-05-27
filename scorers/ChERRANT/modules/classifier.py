@@ -2,6 +2,7 @@ from utils.char_smi import CharFuncs
 from collections import namedtuple
 from pypinyin import pinyin, Style
 import os
+
 Correction = namedtuple(
     "Correction",
     [
@@ -9,9 +10,10 @@ Correction = namedtuple(
         "toks",
         "inds",
     ],
-) 
+)
 file_path = os.path.dirname(os.path.abspath(__file__))
 char_smi = CharFuncs(os.path.join(file_path.replace("modules", ""), 'data/char_meta.txt'))
+
 
 def check_spell_error(src_span: str,
                       tgt_span: str,
@@ -29,14 +31,17 @@ def check_spell_error(src_span: str,
             v_sim = char_smi.shape_similarity(src_char, tgt_char)
             p_sim = char_smi.pronunciation_similarity(src_char, tgt_char)
             if v_sim + p_sim < threshold and not (
-                    set(pinyin(src_char, style=Style.NORMAL, heteronym=True)[0]) & set(pinyin(tgt_char, style=Style.NORMAL, heteronym=True)[0])):
+                    set(pinyin(src_char, style=Style.NORMAL, heteronym=True)[0]) & set(
+                pinyin(tgt_char, style=Style.NORMAL, heteronym=True)[0])):
                 return False
     return True
+
 
 class Classifier:
     """
     错误类型分类器
     """
+
     def __init__(self,
                  granularity: str = "word"):
 
@@ -145,7 +150,8 @@ class Classifier:
         if verbose:
             print("========== Corrections ==========")
             for cor in results:
-                print("Type: {:s}, Position: {:d} -> {:d}, Target: {:s}".format(cor.op, cor.inds[0], cor.inds[1], cor.toks))
+                print("Type: {:s}, Position: {:d} -> {:d}, Target: {:s}".format(cor.op, cor.inds[0], cor.inds[1],
+                                                                                cor.toks))
         return results
 
 # print(pinyin("朝", style=Style.NORMAL))

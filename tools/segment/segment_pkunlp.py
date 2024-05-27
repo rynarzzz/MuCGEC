@@ -5,7 +5,8 @@ from tqdm import tqdm
 from segger.pkunlp import Segmentor
 
 file_path = os.path.dirname(os.path.abspath(__file__))
-tokenizer = Segmentor(os.path.join(file_path, "segger/feature/segment.feat"), os.path.join(file_path, "segger/feature/segment.dic"))
+tokenizer = Segmentor(os.path.join(file_path, "segger/feature/segment.feat"),
+                      os.path.join(file_path, "segger/feature/segment.dic"))
 
 with open(sys.argv[1], "w", encoding="utf-8") as f:
     for line in tqdm(sys.stdin):

@@ -94,8 +94,8 @@ class Seq2LabelsDatasetReader(DatasetReader):
                     tokens = [Token(token) for token, tag in tokens_and_tags]
                     tags = [tag for token, tag in tokens_and_tags]
                 except ValueError:
-                        tokens = [Token(token) for token, tag in tokens_and_tags]
-                        tags = [tag for token, tag in tokens_and_tags]
+                    tokens = [Token(token) for token, tag in tokens_and_tags]
+                    tags = [tag for token, tag in tokens_and_tags]
 
                 if tokens and tokens[0] != Token(START_TOKEN):
                     tokens = [Token(START_TOKEN)] + tokens
@@ -139,7 +139,8 @@ class Seq2LabelsDatasetReader(DatasetReader):
         else:
             raise Exception("Incorrect tag strategy")
 
-        detect_tags = ["CORRECT" if label == "$KEEP" else "INCORRECT" for label in labels_final]  # 抽取一下当前token是否有误的标签，后面要用到。
+        detect_tags = ["CORRECT" if label == "$KEEP" else "INCORRECT" for label in
+                       labels_final]  # 抽取一下当前token是否有误的标签，后面要用到。
         return labels_final, detect_tags, complex_flag_dict
 
     def text_to_instance(self, tokens: List[Token],

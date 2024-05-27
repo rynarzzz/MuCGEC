@@ -5,6 +5,7 @@ import torch
 import os
 import functools
 
+
 class Tokenizer:
     """
     分词器
@@ -20,7 +21,7 @@ class Tokenizer:
         构造函数
         :param mode: 分词模式，可选级别：字级别（char）、词级别（word）
         """
-        self.ltp = None 
+        self.ltp = None
         if granularity == "word":
             self.ltp = LTP(device=torch.device(device) if torch.cuda.is_available() else torch.device("cpu"))
             self.ltp.add_words(words=["[缺失成分]"], max_window=6)
@@ -58,16 +59,19 @@ class Tokenizer:
         if bpe:
             from . import tokenization
             project_dir = os.path.dirname(os.path.dirname(__file__))
-            tokenizer = tokenization.FullTokenizer(vocab_file=os.path.join(project_dir,"data","chinese_vocab.txt"), do_lower_case=False)
+            tokenizer = tokenization.FullTokenizer(vocab_file=os.path.join(project_dir, "data", "chinese_vocab.txt"),
+                                                   do_lower_case=False)
         results = []
         for input_string in input_strings:
             if not self.segmented:  # 如果没有被分字，就按照每个字符隔开（不考虑英文标点的特殊处理，也不考虑BPE），否则遵循原分字结果
-                segment_string = " ".join([char for char in input_string] if not bpe else tokenizer.tokenize(input_string))
+                segment_string = " ".join(
+                    [char for char in input_string] if not bpe else tokenizer.tokenize(input_string))
             else:
                 segment_string = input_string
                 # print(segment_string)
             segment_string = segment_string.replace("[ 缺 失 成 分 ]", "[缺失成分]").split(" ")  # 缺失成分当成一个单独的token
-            results.append([(char, "unk", pinyin(char, style=Style.NORMAL, heteronym=True)[0]) for char in segment_string])
+            results.append(
+                [(char, "unk", pinyin(char, style=Style.NORMAL, heteronym=True)[0]) for char in segment_string])
         return results
 
     def split_word(self, input_strings: List[str]) -> List:
@@ -86,6 +90,7 @@ class Tokenizer:
             pinyin = [lazy_pinyin(word) for word in s]
             result.append(list(zip(s, p, pinyin)))
         return result
+
 
 if __name__ == "__main__":
     tokenizer = Tokenizer("word")

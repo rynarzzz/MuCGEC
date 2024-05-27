@@ -9,6 +9,7 @@ chinese_punct = "！？｡＂＃＄％＆＇（）＊＋，－／：；＜＝＞
 english_punct = punctuation
 punct = chinese_punct + english_punct
 
+
 def check_all_chinese(word):
     """
     判断一个单词是否全部由中文组成
@@ -16,6 +17,7 @@ def check_all_chinese(word):
     :return:
     """
     return all(['\u4e00' <= ch <= '\u9fff' for ch in word])
+
 
 def read_cilin():
     """
@@ -47,6 +49,7 @@ def read_confusion():
             confusion_dict[li[0]] = li[1:]
     return confusion_dict
 
+
 class Alignment:
     """
     对齐错误句子和正确句子，
@@ -58,7 +61,7 @@ class Alignment:
             semantic_dict: Dict,
             confusion_dict: Dict,
             granularity: str = "word",
-            ) -> None:
+    ) -> None:
         """
         构造函数
         :param semantic_dict: 语义词典（大词林）
@@ -72,7 +75,7 @@ class Alignment:
         self._open_pos = {}  # 如果是词级别，还可以利用词性是否相同来计算cost
         self.granularity = granularity  # word-level or character-level
         self.align_seqs = []
-        
+
     def __call__(self,
                  src: List[Tuple],
                  tgt: List[Tuple],
@@ -176,7 +179,9 @@ class Alignment:
         count = 0
         for i in range(len(a)):
             for j in range(len(b)):
-                if a[i] == b[j] or (set(pinyin_a) & set(pinyin_b)) or (b[j] in self.confusion_dict.keys() and a[i] in self.confusion_dict[b[j]]) or (a[i] in self.confusion_dict.keys() and b[j] in self.confusion_dict[a[i]]):
+                if a[i] == b[j] or (set(pinyin_a) & set(pinyin_b)) or (
+                        b[j] in self.confusion_dict.keys() and a[i] in self.confusion_dict[b[j]]) or (
+                        a[i] in self.confusion_dict.keys() and b[j] in self.confusion_dict[a[i]]):
                     count += 1
                     break
         return (len(a) - count) / (len(a) * 2)
@@ -317,9 +322,9 @@ class Alignment:
         i = oper_matrix.shape[0] - 1
         j = oper_matrix.shape[1] - 1
         if abs(i - j) > 10:
-            self._dfs(i, j , [], oper_matrix, "first")
+            self._dfs(i, j, [], oper_matrix, "first")
         else:
-            self._dfs(i, j , [], oper_matrix, "all")
+            self._dfs(i, j, [], oper_matrix, "all")
         final_align_seqs = [seq[::-1] for seq in self.align_seqs]
         return final_align_seqs
 
@@ -329,6 +334,10 @@ if __name__ == "__main__":
     semantic_dict, semantic_class = read_cilin()
     confusion_dict = read_confusion()
     alignment = Alignment(semantic_dict, confusion_dict)
-    sents = ["首先 ， 我们 得 准备 : 大 虾六 到 九 只 、 盐 一 茶匙 、 已 搾 好 的 柠檬汁 三 汤匙 、 泰国 柠檬 叶三叶 、 柠檬 香草 一 根 、 鱼酱 两 汤匙 、 辣椒 6 粒 ， 纯净 水 4量杯 、 香菜 半量杯 和 草菇 10 个 。".replace(" ", ""), "首先 ， 我们 得 准备 : 大 虾六 到 九 只 、 盐 一 茶匙 、 已 榨 好 的 柠檬汁 三 汤匙 、 泰国 柠檬 叶三叶 、 柠檬 香草 一 根 、 鱼酱 两 汤匙 、 辣椒 六 粒 ， 纯净 水 四 量杯 、 香菜 半量杯 和 草菇 十 个 。".replace(" ", "")]
+    sents = [
+        "首先 ， 我们 得 准备 : 大 虾六 到 九 只 、 盐 一 茶匙 、 已 搾 好 的 柠檬汁 三 汤匙 、 泰国 柠檬 叶三叶 、 柠檬 香草 一 根 、 鱼酱 两 汤匙 、 辣椒 6 粒 ， 纯净 水 4量杯 、 香菜 半量杯 和 草菇 10 个 。".replace(
+            " ", ""),
+        "首先 ， 我们 得 准备 : 大 虾六 到 九 只 、 盐 一 茶匙 、 已 榨 好 的 柠檬汁 三 汤匙 、 泰国 柠檬 叶三叶 、 柠檬 香草 一 根 、 鱼酱 两 汤匙 、 辣椒 六 粒 ， 纯净 水 四 量杯 、 香菜 半量杯 和 草菇 十 个 。".replace(
+            " ", "")]
     src, tgt = tokenizer(sents)
     alignment(src, tgt, verbose=True)

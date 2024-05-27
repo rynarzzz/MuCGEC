@@ -3,6 +3,7 @@ from collections import Counter
 from modules.classifier import check_spell_error
 from tqdm import tqdm
 
+
 def parse_m2(filename):
     """解析m2格式文件
 
@@ -32,7 +33,7 @@ def parse_m2(filename):
                 edit_list.append(s)
             edits.append(edit_list)
     return sources, edits
-        
+
 
 def validate(edits):
     edits_with_pos = []
@@ -43,11 +44,11 @@ def validate(edits):
     edits_with_pos.sort(key=lambda x: (x[0], -times))  # 按照起始位置从小到大排序，起始位置相同，按照编辑出现次数从大到小排序
     final_edits = [edits_with_pos[0][2]]
     for i in range(1, len(edits_with_pos)):
-        if edits_with_pos[i][0] < edits_with_pos[i-1][1]:  # 有重叠span
-            edits_with_pos[i] = edits_with_pos[i-1]  # 后续的span和前一个span比较
+        if edits_with_pos[i][0] < edits_with_pos[i - 1][1]:  # 有重叠span
+            edits_with_pos[i] = edits_with_pos[i - 1]  # 后续的span和前一个span比较
             continue
-        if edits_with_pos[i][0] == edits_with_pos[i-1][0] and edits_with_pos[i][1] == edits_with_pos[i-1][1]:
-            edits_with_pos[i] = edits_with_pos[i-1]  # 后续的span和前一个span比较
+        if edits_with_pos[i][0] == edits_with_pos[i - 1][0] and edits_with_pos[i][1] == edits_with_pos[i - 1][1]:
+            edits_with_pos[i] = edits_with_pos[i - 1]  # 后续的span和前一个span比较
             continue
         final_edits.append(edits_with_pos[i][-2])
     final_final_edits = []
@@ -93,6 +94,7 @@ def main(args):
             else:
                 out = src + "\n" + "A -1 -1|||noop|||-NONE-|||REQUIRED|||-NONE-|||0" + "\n\n"
             o.write(out)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
